@@ -14,6 +14,20 @@ namespace Systems {
             
             var playerData = new PlayerData();
             playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
+            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
             
             // Zawomon zaczyna bez żadnych spellów - musi je nauczyć się sam
             // var zawomon = playerData.Zawomons[0];

@@ -11,7 +11,10 @@ namespace Systems {
         public List<Spell> AllSpells = new List<Spell>();
         private string learningFilePath;
 
+        public event System.Action OnPlayerDataReady;
+
         private async void Awake() {
+            Debug.Log("GameManager Awake");
             if (Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
@@ -26,13 +29,17 @@ namespace Systems {
         private async Task LoadGameDataAsync() {
             // Pobierz dane gracza z API
             PlayerData = await GameAPI.GetPlayerDataAsync();
-            
+
+            Debug.Log("Załadowano dane gracza: " + PlayerData.Name);
+            // Powiadom subskrybentów, że PlayerData jest gotowe
+            OnPlayerDataReady?.Invoke();
+
             // Pobierz wszystkie spelle z API
             AllSpells = await GameAPI.GetAllSpellsAsync();
-            
+
             // Pobierz postęp nauki z API
             await LoadLearningSpellsAsync();
-            
+
             Debug.Log("Twój pierwszy zawomon: " + PlayerData.Zawomons[0].Name + ", klasa: " + PlayerData.Zawomons[0].MainClass + ", kolor: " + PlayerData.Zawomons[0].Color);
         }
 
