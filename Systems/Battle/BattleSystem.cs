@@ -1,192 +1,301 @@
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Models;
+using Systems.Battle.UI;
 
-
-public class BattleSystem : MonoBehaviour
+namespace Systems.Battle
 {
-    // Struktura do obsługi wyboru ruchów przez gracza
-    public class MoveSelectionState
+    public class BattleSystem : MonoBehaviour
     {
-        public int selectedZawomonIdx = 0;
-        public int selectedSpellIdx = 0;
-        public bool isConfirmed = false;
-        public bool isVisible = true;
-    }
-
-    // Przykładowa logika wyboru ruchów dla dwóch graczy lokalnie (do podpięcia pod UI lub InputManager)
-    public MoveSelectionState[] moveSelections = new MoveSelectionState[2] { new MoveSelectionState(), new MoveSelectionState() };
-
-    // Wywołuj w Update lub przez UI
-    public void HandleLocalInput(List<BattleParticipant> team, int playerIdx)
-    {
-        var sel = moveSelections[playerIdx];
-        var zawomons = team;
-        if (zawomons.Count == 0) return;
-
-        // Przykład: obsługa klawiszy dla gracza 1 (WASDQE) i gracza 2 (IJKLUO)
-        // (W/S lub I/K) - zmiana zawomona
-        // (A/D lub J/L) - zmiana spella
-        // (E/U) - zatwierdź
-        // (Q/O) - tryb widoczny
-
-        // To jest tylko szkielet, podłącz pod swój system inputów lub UI!
-        // Poniżej pseudokod:
-        // if (Input.GetKeyDown(KeyCode.W)) { ... }
-        // if (Input.GetKeyDown(KeyCode.A)) { ... }
-        // ...
-
-        // Przykład zmiany wybranego zawomona
-        // sel.selectedZawomonIdx = (sel.selectedZawomonIdx + 1 + zawomons.Count) % zawomons.Count;
-        // Przykład zmiany wybranego spella
-        // var spells = zawomons[sel.selectedZawomonIdx].zawomon.Spells;
-        // sel.selectedSpellIdx = (sel.selectedSpellIdx + 1 + spells.Count) % spells.Count;
-        // Przykład zatwierdzenia
-        // sel.isConfirmed = true;
-        // Przykład trybu widoczności
-        // sel.isVisible = !sel.isVisible;
-
-        // Po zatwierdzeniu wyboru:
-        // zawomons[sel.selectedZawomonIdx].selectedSpell = spells[sel.selectedSpellIdx];
-        // zawomons[sel.selectedZawomonIdx].isVisible = sel.isVisible;
-    }
-
-    public BattleState state;
-
-
-    public enum BattleMode { Local, Online }
-
-    public class BattleParticipant
-    {
-        public Zawomon zawomon;
-        public Spell selectedSpell;
-        public bool isVisible = true; // tryb "widoczny"
-        public int currentHP;
-        public int initiativeBonus = 0;
-        // ... inne statusy
-    }
-
-    public class BattleState
-    {
-        public List<BattleParticipant> teamA = new();
-        public List<BattleParticipant> teamB = new();
-        public BattleMode mode;
-        public int currentTurn = 0;
-        // ... inne dane stanu walki
-    }
-
-        public void StartBattle(List<Zawomon> teamA, List<Zawomon> teamB, BattleMode mode)
+        [Header("UI References")]
+        public TeamSelectionUI teamSelectionUI;
+        public BattleMoveSelectionUI moveSelectionUI;
+        public GameObject teamSelectionPanel;
+        public GameObject battlePanel;
+        
+        private Models.BattleState battleState;
+        
+        // Events
+        public System.Action<string> OnBattleFinished;
+        
+        void Start()
         {
-            state = new BattleState
+            Initialize();
+        }
+        
+        void Initialize()
+        {
+            // Setup UI event handlers
+            if (teamSelectionUI != null)
             {
-                teamA = teamA.Select(z => new BattleParticipant { zawomon = z, currentHP = z.MaxHP }).ToList(),
-                teamB = teamB.Select(z => new BattleParticipant { zawomon = z, currentHP = z.MaxHP }).ToList(),
-                mode = mode
+                teamSelectionUI.OnTeamsSelected += StartBattle;
+            }
+            
+            if (moveSelectionUI != null)
+            {
+                moveSelectionUI.OnBothTeamsReady += ProcessTurn;
+            }
+            
+            // Show team selection UI initially
+            ShowTeamSelection();
+        }
+        
+        void ShowTeamSelection()
+        {
+            if (teamSelectionPanel != null) teamSelectionPanel.SetActive(true);
+            if (battlePanel != null) battlePanel.SetActive(false);
+        }
+        
+        void ShowBattleUI()
+        {
+            if (teamSelectionPanel != null) teamSelectionPanel.SetActive(false);
+            if (battlePanel != null) battlePanel.SetActive(true);
+        }
+        
+        public void StartBattle(List<Zawomon> teamA, List<Zawomon> teamB)
+        {
+            StartBattle(teamA, teamB, Models.BattleMode.Local);
+        }
+        
+        public void StartBattle(List<Zawomon> teamA, List<Zawomon> teamB, Models.BattleMode mode)
+        {
+            Debug.Log($"Starting battle: Team A ({teamA.Count}) vs Team B ({teamB.Count})");
+            
+            // Initialize battle state
+            battleState = new BattleState
+            {
+                teamA = teamA.Select(z => new BattleParticipant(z)).ToList(),
+                teamB = teamB.Select(z => new BattleParticipant(z)).ToList(),
+                mode = mode,
+                phase = BattlePhase.Selection,
+                currentTurn = 0
             };
-            // ... inicjalizacja walki
+            
+            // Switch to battle UI
+            ShowBattleUI();
+            
+            // Initialize move selection UI
+            if (moveSelectionUI != null)
+            {
+                moveSelectionUI.Initialize(battleState);
+            }
+            
+            Debug.Log("Battle started! Players can now select their moves.");
         }
-    // ...existing code...
-
-    public void SelectMove(BattleParticipant participant, Spell spell)
-    {
-        participant.selectedSpell = spell;
-    }
-
-    public void ToggleVisibility(BattleParticipant participant)
-    {
-        if (state.mode == BattleMode.Local)
-            participant.isVisible = !participant.isVisible;
-    }
-
-    public void NextTurn()
-    {
-        // 1. Zbierz wszystkich uczestników
-        var all = state.teamA.Concat(state.teamB).ToList();
-        // 2. Posortuj po inicjatywie i levelu
-        all = all.OrderByDescending(p => p.zawomon.Initiative + p.initiativeBonus)
-                 .ThenByDescending(p => p.zawomon.Level)
-                 .ToList();
-        // 3. Wykonaj ruchy
-        foreach (var p in all)
+        
+        public void ProcessTurn()
         {
-            if (p.currentHP > 0 && p.selectedSpell != null)
-                ResolveSpell(p, p.selectedSpell);
+            if (battleState == null || battleState.phase != BattlePhase.Selection)
+            {
+                Debug.LogWarning("Cannot process turn: invalid battle state");
+                return;
+            }
+            
+            Debug.Log($"Processing turn {battleState.currentTurn + 1}");
+            
+            // Change to combat phase
+            battleState.phase = BattlePhase.Combat;
+            
+            // Execute all moves based on initiative
+            ExecuteCombatRound();
+            
+            // Check for battle end
+            if (CheckBattleEnd())
+            {
+                EndBattle();
+                return;
+            }
+            
+            // Prepare for next turn
+            battleState.currentTurn++;
+            battleState.phase = BattlePhase.Selection;
+            
+            // Reset move selection UI for next turn
+            if (moveSelectionUI != null)
+            {
+                moveSelectionUI.ResetTurn();
+            }
+            
+            Debug.Log($"Turn {battleState.currentTurn} complete. Starting turn {battleState.currentTurn + 1}");
         }
-        // 4. Sprawdź zwycięzcę
-        CheckWinner();
-        state.currentTurn++;
-    }
-
-    private void ResolveSpell(BattleParticipant caster, Spell spell)
-    {
-        List<BattleParticipant> targets = new();
-        // Ustal drużyny
-        var teamA = state.teamA;
-        var teamB = state.teamB;
-        bool isCasterA = teamA.Contains(caster);
-        var ownTeam = isCasterA ? teamA : teamB;
-        var enemyTeam = isCasterA ? teamB : teamA;
-
-        // Ustal targety
-        switch (spell.TargetType)
+        
+        void ExecuteCombatRound()
         {
-            case Models.SpellTargetType.Enemy:
-                // Najpierw pierwszy żywy przeciwnik
-                var target = enemyTeam.FirstOrDefault(p => p.currentHP > 0);
-                if (target != null) targets.Add(target);
-                break;
-            case Models.SpellTargetType.AllEnemies:
-                targets.AddRange(enemyTeam.Where(p => p.currentHP > 0));
-                break;
-            case Models.SpellTargetType.Ally:
-                var ally = ownTeam.FirstOrDefault(p => p.currentHP > 0 && p != caster);
-                if (ally != null) targets.Add(ally);
-                break;
-            case Models.SpellTargetType.AllAllies:
-                targets.AddRange(ownTeam.Where(p => p.currentHP > 0 && p != caster));
-                break;
-            case Models.SpellTargetType.Self:
-                targets.Add(caster);
-                break;
+            // Collect all participants with selected spells
+            var allParticipants = battleState.teamA.Concat(battleState.teamB)
+                .Where(p => p.IsAlive && p.selectedSpell != null)
+                .ToList();
+            
+            // Sort by initiative (higher first), then by level (higher first)
+            allParticipants = allParticipants
+                .OrderByDescending(p => p.TotalInitiative)
+                .ThenByDescending(p => p.zawomon.Level)
+                .ToList();
+            
+            Debug.Log($"Combat order: {string.Join(", ", allParticipants.Select(p => p.zawomon.Name))}");
+            
+            // Execute each participant's move
+            foreach (var participant in allParticipants)
+            {
+                if (participant.IsAlive && participant.selectedSpell != null)
+                {
+                    ExecuteSpell(participant, participant.selectedSpell);
+                }
+            }
         }
-
-        // Efekty
-        foreach (var t in targets)
+        
+        void ExecuteSpell(BattleParticipant caster, Spell spell)
+        {
+            var targets = GetSpellTargets(caster, spell);
+            
+            Debug.Log($"{caster.zawomon.Name} casts {spell.Name} on {targets.Count} target(s)");
+            
+            foreach (var target in targets)
+            {
+                ApplySpellEffect(caster, target, spell);
+            }
+        }
+        
+        List<BattleParticipant> GetSpellTargets(BattleParticipant caster, Spell spell)
+        {
+            var targets = new List<BattleParticipant>();
+            
+            // Determine teams
+            bool isCasterInTeamA = battleState.teamA.Contains(caster);
+            var ownTeam = isCasterInTeamA ? battleState.teamA : battleState.teamB;
+            var enemyTeam = isCasterInTeamA ? battleState.teamB : battleState.teamA;
+            
+            switch (spell.TargetType)
+            {
+                case SpellTargetType.Enemy:
+                    var firstEnemy = enemyTeam.FirstOrDefault(p => p.IsAlive);
+                    if (firstEnemy != null) targets.Add(firstEnemy);
+                    break;
+                    
+                case SpellTargetType.AllEnemies:
+                    targets.AddRange(enemyTeam.Where(p => p.IsAlive));
+                    break;
+                    
+                case SpellTargetType.Ally:
+                    var firstAlly = ownTeam.FirstOrDefault(p => p.IsAlive && p != caster);
+                    if (firstAlly != null) targets.Add(firstAlly);
+                    break;
+                    
+                case SpellTargetType.AllAllies:
+                    targets.AddRange(ownTeam.Where(p => p.IsAlive && p != caster));
+                    break;
+                    
+                case SpellTargetType.Self:
+                    targets.Add(caster);
+                    break;
+            }
+            
+            return targets;
+        }
+        
+        void ApplySpellEffect(BattleParticipant caster, BattleParticipant target, Spell spell)
         {
             switch (spell.EffectType)
             {
-                case Models.SpellEffectType.Damage:
-                    t.currentHP -= spell.EffectValue;
-                    Debug.Log($"{caster.zawomon.Name} zadaje {spell.EffectValue} dmg {t.zawomon.Name}");
-                    if (t.currentHP < 0) t.currentHP = 0;
+                case SpellEffectType.Damage:
+                    int damage = spell.EffectValue;
+                    target.currentHP = Mathf.Max(0, target.currentHP - damage);
+                    Debug.Log($"{caster.zawomon.Name} deals {damage} damage to {target.zawomon.Name} ({target.currentHP}/{target.zawomon.MaxHP} HP remaining)");
                     break;
-                case Models.SpellEffectType.Heal:
-                    t.currentHP += spell.EffectValue;
-                    if (t.currentHP > t.zawomon.MaxHP) t.currentHP = t.zawomon.MaxHP;
-                    Debug.Log($"{caster.zawomon.Name} leczy {t.zawomon.Name} o {spell.EffectValue}");
+                    
+                case SpellEffectType.Heal:
+                    int healing = spell.EffectValue;
+                    target.currentHP = Mathf.Min(target.zawomon.MaxHP, target.currentHP + healing);
+                    Debug.Log($"{caster.zawomon.Name} heals {target.zawomon.Name} for {healing} HP ({target.currentHP}/{target.zawomon.MaxHP} HP)");
                     break;
-                case Models.SpellEffectType.BuffInitiative:
-                    t.initiativeBonus += spell.EffectValue;
-                    Debug.Log($"{caster.zawomon.Name} daje {spell.EffectValue} inicjatywy {t.zawomon.Name}");
+                    
+                case SpellEffectType.BuffInitiative:
+                    target.initiativeBonus += spell.EffectValue;
+                    Debug.Log($"{caster.zawomon.Name} gives {target.zawomon.Name} +{spell.EffectValue} initiative bonus");
                     break;
-                case Models.SpellEffectType.BuffDamage:
-                    t.zawomon.Damage += spell.EffectValue;
-                    Debug.Log($"{caster.zawomon.Name} daje {spell.EffectValue} dmg {t.zawomon.Name}");
+                    
+                case SpellEffectType.BuffDamage:
+                    target.zawomon.Damage += spell.EffectValue;
+                    Debug.Log($"{caster.zawomon.Name} gives {target.zawomon.Name} +{spell.EffectValue} damage bonus");
                     break;
             }
         }
-    }
-
-    private void CheckWinner()
-    {
-        bool teamADead = state.teamA.All(p => p.currentHP <= 0);
-        bool teamBDead = state.teamB.All(p => p.currentHP <= 0);
-        if (teamADead || teamBDead)
+        
+        bool CheckBattleEnd()
         {
-            // ... obsługa końca walki
+            bool teamAAlive = battleState.IsTeamAAlive;
+            bool teamBAlive = battleState.IsTeamBAlive;
+            
+            if (!teamAAlive && !teamBAlive)
+            {
+                battleState.winner = "Draw"; // Should not happen due to initiative order
+                return true;
+            }
+            else if (!teamAAlive)
+            {
+                battleState.winner = "Team B";
+                return true;
+            }
+            else if (!teamBAlive)
+            {
+                battleState.winner = "Team A";
+                return true;
+            }
+            
+            return false;
+        }
+        
+        void EndBattle()
+        {
+            battleState.phase = BattlePhase.Finished;
+            
+            Debug.Log($"Battle finished! Winner: {battleState.winner}");
+            
+            OnBattleFinished?.Invoke(battleState.winner);
+            
+            // You can add UI here to show battle results
+            // For now, we'll just log and return to team selection
+            
+            // Reset for next battle after a delay
+            Invoke(nameof(ReturnToTeamSelection), 3f);
+        }
+        
+        void ReturnToTeamSelection()
+        {
+            battleState = null;
+            
+            if (teamSelectionUI != null)
+            {
+                teamSelectionUI.ResetSelection();
+            }
+            
+            ShowTeamSelection();
+        }
+        
+        // Public methods for external access
+        public Models.BattleState GetBattleState() => battleState;
+        
+        public bool IsBattleActive() => battleState != null && battleState.phase != Models.BattlePhase.Finished;
+        
+        public void ResetBattleSystem()
+        {
+            Debug.Log("Resetting battle system");
+            
+            battleState = null;
+            
+            if (teamSelectionUI != null)
+            {
+                teamSelectionUI.ResetSelection();
+            }
+            
+            if (moveSelectionUI != null && moveSelectionUI.gameObject.activeInHierarchy)
+            {
+                moveSelectionUI.ResetTurn();
+            }
+            
+            ShowTeamSelection();
         }
     }
 }
