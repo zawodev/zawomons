@@ -1,15 +1,13 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Models
-{
+namespace Models {
     public enum BattleMode { Local, Online }
     
     public enum BattlePhase { Selection, Combat, Finished }
     
     [System.Serializable]
-    public class BattleState
-    {
+    public class BattleState {
         public List<BattleParticipant> teamA = new();
         public List<BattleParticipant> teamB = new();
         public BattleMode mode = BattleMode.Local;

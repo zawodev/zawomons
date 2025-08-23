@@ -3,15 +3,15 @@ using System.Collections.Generic;
 namespace Models {
     [System.Serializable]
     public class PlayerData {
-        public string Name;
-        public List<Zawomon> Zawomons = new List<Zawomon>();
+        public string name;
+        public List<Creature> creatures = new List<Creature>();
 
-        public void AddZawomon(Zawomon zawomon) {
-            Zawomons.Add(zawomon);
+        public void AddCreature(Creature creature) {
+            creatures.Add(creature);
         }
 
-        public void RemoveZawomon(Zawomon zawomon) {
-            Zawomons.Remove(zawomon);
+        public void RemoveCreature(Creature creature) {
+            creatures.Remove(creature);
         }
     }
 }

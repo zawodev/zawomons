@@ -21,8 +21,8 @@ namespace Systems.Battle.UI
         public int gridCols = 4;
         
         // Teams
-        private List<Zawomon> teamA = new();
-        private List<Zawomon> teamB = new();
+        private List<Creature> teamA = new();
+        private List<Creature> teamB = new();
         
         // UI State
         private List<GameObject> zawomonButtons = new();
@@ -33,7 +33,7 @@ namespace Systems.Battle.UI
         private int totalZawomons = 0;
         
         // Events
-        public System.Action<List<Zawomon>, List<Zawomon>> OnTeamsSelected;
+        public System.Action<List<Creature>, List<Creature>> OnTeamsSelected;
         
         void OnEnable()
         {
@@ -66,7 +66,7 @@ namespace Systems.Battle.UI
                 if (btn != null) Destroy(btn);
             zawomonButtons.Clear();
             
-            var zawomons = GameManager.Instance.PlayerData.Zawomons;
+            var zawomons = GameManager.Instance.PlayerData.creatures;
             totalZawomons = zawomons.Count;
             
             for (int i = 0; i < totalZawomons; i++)
@@ -75,7 +75,7 @@ namespace Systems.Battle.UI
                 var zaw = zawomons[i];
                 var btnObj = Instantiate(zawomonButtonPrefab, zawomonGridParent);
                 var txt = btnObj.GetComponentInChildren<TextMeshProUGUI>();
-                txt.text = $"{zaw.Name} ({zaw.MainClass})";
+                txt.text = $"{zaw.name} ({zaw.mainElement})";
                 
                 // Add click handlers
                 var trigger = btnObj.GetComponent<EventTrigger>();
@@ -101,7 +101,7 @@ namespace Systems.Battle.UI
         
         public void UpdateGridHighlights()
         {
-            var zawomons = GameManager.Instance.PlayerData.Zawomons;
+            var zawomons = GameManager.Instance.PlayerData.creatures;
             
             for (int i = 0; i < zawomonButtons.Count && i < zawomons.Count; i++)
             {
@@ -148,9 +148,9 @@ namespace Systems.Battle.UI
         
         public void ToggleZawomon(int idx, bool toTeamA)
         {
-            if (idx >= GameManager.Instance.PlayerData.Zawomons.Count) return;
+            if (idx >= GameManager.Instance.PlayerData.creatures.Count) return;
             
-            var zaw = GameManager.Instance.PlayerData.Zawomons[idx];
+            var zaw = GameManager.Instance.PlayerData.creatures[idx];
             
             if (toTeamA)
             {
@@ -173,8 +173,8 @@ namespace Systems.Battle.UI
         
         public void UpdateInfoText()
         {
-            string teamANames = string.Join(", ", teamA.ConvertAll(z => z.Name));
-            string teamBNames = string.Join(", ", teamB.ConvertAll(z => z.Name));
+            string teamANames = string.Join(", ", teamA.ConvertAll(z => z.name));
+            string teamBNames = string.Join(", ", teamB.ConvertAll(z => z.name));
             
             infoText.text = $"Team A (Red): {teamANames}\nTeam B (Blue): {teamBNames}\n\n";
             

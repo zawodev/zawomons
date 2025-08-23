@@ -30,7 +30,7 @@ namespace Systems {
             // Pobierz dane gracza z API
             PlayerData = await GameAPI.GetPlayerDataAsync();
 
-            Debug.Log("Załadowano dane gracza: " + PlayerData.Name);
+            Debug.Log("Załadowano dane gracza: " + PlayerData.name);
             // Powiadom subskrybentów, że PlayerData jest gotowe
             OnPlayerDataReady?.Invoke();
 
@@ -40,26 +40,26 @@ namespace Systems {
             // Pobierz postęp nauki z API
             await LoadLearningSpellsAsync();
 
-            Debug.Log("Twój pierwszy zawomon: " + PlayerData.Zawomons[0].Name + ", klasa: " + PlayerData.Zawomons[0].MainClass + ", kolor: " + PlayerData.Zawomons[0].Color);
+            Debug.Log("Twój pierwszy zawomon: " + PlayerData.creatures[0].name + ", klasa: " + PlayerData.creatures[0].mainElement + ", kolor: " + PlayerData.creatures[0].color);
         }
 
         private void OnApplicationQuit() {
-            SaveLearningSpellsAsync();
+            _ = SaveLearningSpellsAsync();
         }
 
         private async Task SaveLearningSpellsAsync() {
-            if (PlayerData?.Zawomons.Count > 0) {
-                var zawomon = PlayerData.Zawomons[0];
-                await GameAPI.SaveLearningProgressAsync(1, zawomon.LearningSpells); // 1 = placeholder zawomon ID
+            if (PlayerData?.creatures.Count > 0) {
+                var zawomon = PlayerData.creatures[0];
+                await GameAPI.SaveLearningProgressAsync(1, zawomon.learningSpells); // 1 = placeholder zawomon ID
                 Debug.Log("Zapisano postęp nauki spellów do API");
             }
         }
 
         private async Task LoadLearningSpellsAsync() {
-            if (PlayerData?.Zawomons.Count > 0) {
-                var zawomon = PlayerData.Zawomons[0];
+            if (PlayerData?.creatures.Count > 0) {
+                var zawomon = PlayerData.creatures[0];
                 var learningSpells = await GameAPI.GetLearningProgressAsync(1); // 1 = placeholder zawomon ID
-                zawomon.LearningSpells = learningSpells;
+                zawomon.learningSpells = learningSpells;
                 Debug.Log("Wczytano postęp nauki spellów z API");
             }
         }

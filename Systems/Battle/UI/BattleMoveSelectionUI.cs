@@ -112,13 +112,13 @@ namespace Systems.Battle.UI
             }
             
             // Spell selection (A/D or J/L)
-            if (leftPressed && currentParticipant.zawomon.Spells.Count > 0)
+            if (leftPressed && currentParticipant.creature.spells.Count > 0)
             {
-                selectedSpell = (selectedSpell - 1 + currentParticipant.zawomon.Spells.Count) % currentParticipant.zawomon.Spells.Count;
+                selectedSpell = (selectedSpell - 1 + currentParticipant.creature.spells.Count) % currentParticipant.creature.spells.Count;
             }
-            else if (rightPressed && currentParticipant.zawomon.Spells.Count > 0)
+            else if (rightPressed && currentParticipant.creature.spells.Count > 0)
             {
-                selectedSpell = (selectedSpell + 1) % currentParticipant.zawomon.Spells.Count;
+                selectedSpell = (selectedSpell + 1) % currentParticipant.creature.spells.Count;
             }
             
             // Visibility toggle (Q/U) - only in local mode
@@ -128,9 +128,9 @@ namespace Systems.Battle.UI
             }
             
             // Confirm move (E/O)
-            if (confirmPressed && currentParticipant.zawomon.Spells.Count > 0)
+            if (confirmPressed && currentParticipant.creature.spells.Count > 0)
             {
-                currentParticipant.selectedSpell = currentParticipant.zawomon.Spells[selectedSpell];
+                currentParticipant.selectedSpell = currentParticipant.creature.spells[selectedSpell];
                 currentParticipant.hasConfirmedMove = true;
                 
                 // Move to next unconfirmed zawomon
@@ -216,10 +216,10 @@ namespace Systems.Battle.UI
                 else if (participant.hasConfirmedMove)
                     color = "gray";
                 
-                text += $"<color={color}>{participant.zawomon.Name} ({participant.currentHP}/{participant.zawomon.MaxHP} HP)";
+                text += $"<color={color}>{participant.creature.name} ({participant.currentHP}/{participant.creature.maxHP} HP)";
                 
                 if (participant.hasConfirmedMove && participant.selectedSpell != null)
-                    text += $" - {participant.selectedSpell.Name}";
+                    text += $" - {participant.selectedSpell.name}";
                 
                 text += "</color>\n";
             }
@@ -228,13 +228,13 @@ namespace Systems.Battle.UI
             if (selectedZawomon < aliveMembers.Count)
             {
                 var current = aliveMembers[selectedZawomon];
-                if (!current.hasConfirmedMove && current.zawomon.Spells.Count > 0)
+                if (!current.hasConfirmedMove && current.creature.spells.Count > 0)
                 {
                     text += "\nSpells:\n";
-                    for (int i = 0; i < current.zawomon.Spells.Count; i++)
+                    for (int i = 0; i < current.creature.spells.Count; i++)
                     {
                         string spellColor = i == selectedSpell ? "cyan" : "lightgray";
-                        text += $"<color={spellColor}>{current.zawomon.Spells[i].Name}</color>\n";
+                        text += $"<color={spellColor}>{current.creature.spells[i].name}</color>\n";
                     }
                 }
             }

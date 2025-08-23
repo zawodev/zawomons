@@ -1,5 +1,5 @@
 namespace Models {
-    public enum ZawomonClass {
+    public enum CreatureElement {
         Fire,
         Water,
         Ice,

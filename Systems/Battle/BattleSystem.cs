@@ -54,12 +54,12 @@ namespace Systems.Battle
             if (battlePanel != null) battlePanel.SetActive(true);
         }
         
-        public void StartBattle(List<Zawomon> teamA, List<Zawomon> teamB)
+        public void StartBattle(List<Creature> teamA, List<Creature> teamB)
         {
             StartBattle(teamA, teamB, Models.BattleMode.Local);
         }
         
-        public void StartBattle(List<Zawomon> teamA, List<Zawomon> teamB, Models.BattleMode mode)
+        public void StartBattle(List<Creature> teamA, List<Creature> teamB, Models.BattleMode mode)
         {
             Debug.Log($"Starting battle: Team A ({teamA.Count}) vs Team B ({teamB.Count})");
             
@@ -128,13 +128,15 @@ namespace Systems.Battle
                 .Where(p => p.IsAlive && p.selectedSpell != null)
                 .ToList();
             
-            // Sort by initiative (higher first), then by level (higher first)
+            // Sort by initiative (higher first), then by level (higher first), then by experience and name for deterministic ordering
             allParticipants = allParticipants
                 .OrderByDescending(p => p.TotalInitiative)
-                .ThenByDescending(p => p.zawomon.Level)
+                .ThenByDescending(p => p.creature.level)
+                .ThenByDescending(p => p.creature.experience)
+                .ThenBy(p => p.creature.name)
                 .ToList();
             
-            Debug.Log($"Combat order: {string.Join(", ", allParticipants.Select(p => p.zawomon.Name))}");
+            Debug.Log($"Combat order: {string.Join(", ", allParticipants.Select(p => p.creature.name))}");
             
             // Execute each participant's move
             foreach (var participant in allParticipants)
@@ -150,7 +152,7 @@ namespace Systems.Battle
         {
             var targets = GetSpellTargets(caster, spell);
             
-            Debug.Log($"{caster.zawomon.Name} casts {spell.Name} on {targets.Count} target(s)");
+            Debug.Log($"{caster.creature.name} casts {spell.name} on {targets.Count} target(s)");
             
             foreach (var target in targets)
             {
@@ -167,7 +169,7 @@ namespace Systems.Battle
             var ownTeam = isCasterInTeamA ? battleState.teamA : battleState.teamB;
             var enemyTeam = isCasterInTeamA ? battleState.teamB : battleState.teamA;
             
-            switch (spell.TargetType)
+            switch (spell.targetType)
             {
                 case SpellTargetType.Enemy:
                     var firstEnemy = enemyTeam.FirstOrDefault(p => p.IsAlive);
@@ -197,28 +199,28 @@ namespace Systems.Battle
         
         void ApplySpellEffect(BattleParticipant caster, BattleParticipant target, Spell spell)
         {
-            switch (spell.EffectType)
+            switch (spell.effectType)
             {
                 case SpellEffectType.Damage:
-                    int damage = spell.EffectValue;
+                    int damage = spell.effectValue;
                     target.currentHP = Mathf.Max(0, target.currentHP - damage);
-                    Debug.Log($"{caster.zawomon.Name} deals {damage} damage to {target.zawomon.Name} ({target.currentHP}/{target.zawomon.MaxHP} HP remaining)");
+                    Debug.Log($"{caster.creature.name} deals {damage} damage to {target.creature.name} ({target.currentHP}/{target.creature.maxHP} HP remaining)");
                     break;
                     
                 case SpellEffectType.Heal:
-                    int healing = spell.EffectValue;
-                    target.currentHP = Mathf.Min(target.zawomon.MaxHP, target.currentHP + healing);
-                    Debug.Log($"{caster.zawomon.Name} heals {target.zawomon.Name} for {healing} HP ({target.currentHP}/{target.zawomon.MaxHP} HP)");
+                    int healing = spell.effectValue;
+                    target.currentHP = Mathf.Min(target.creature.maxHP, target.currentHP + healing);
+                    Debug.Log($"{caster.creature.name} heals {target.creature.name} for {healing} HP ({target.currentHP}/{target.creature.maxHP} HP)");
                     break;
                     
                 case SpellEffectType.BuffInitiative:
-                    target.initiativeBonus += spell.EffectValue;
-                    Debug.Log($"{caster.zawomon.Name} gives {target.zawomon.Name} +{spell.EffectValue} initiative bonus");
+                    target.initiativeBonus += spell.effectValue;
+                    Debug.Log($"{caster.creature.name} gives {target.creature.name} +{spell.effectValue} initiative bonus");
                     break;
                     
                 case SpellEffectType.BuffDamage:
-                    target.zawomon.Damage += spell.EffectValue;
-                    Debug.Log($"{caster.zawomon.Name} gives {target.zawomon.Name} +{spell.EffectValue} damage bonus");
+                    target.creature.damage += spell.effectValue;
+                    Debug.Log($"{caster.creature.name} gives {target.creature.name} +{spell.effectValue} damage bonus");
                     break;
             }
         }

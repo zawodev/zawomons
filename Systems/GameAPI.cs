@@ -7,33 +7,96 @@ namespace Systems {
         // Placeholder dla ID gracza (później z logowania)
         private static int currentPlayerId = 1;
 
+        // Struktura na globalne zasoby gracza
+        public class PlayerResources {
+            public int gold;
+            public int wood;
+            public int stone;
+            public int gems;
+        }
+
+        // Eventy do powiadamiania UI o zmianach zasobów
+        public static event System.Action<PlayerResources> OnPlayerResourcesUpdated;
+        public static event System.Action<int> OnPlayerGoldUpdated;
+        public static event System.Action<int> OnPlayerWoodUpdated;
+        public static event System.Action<int> OnPlayerStoneUpdated;
+        public static event System.Action<int> OnPlayerGemsUpdated;
+
+        // Przechowywane zasoby (symulacja bazy)
+        private static PlayerResources _resources = new PlayerResources {
+            gold = 100,
+            wood = 50,
+            stone = 30,
+            gems = 5
+        };
+
         // Placeholder dla danych gracza
         public static async Task<PlayerData> GetPlayerDataAsync() {
             // Symulacja opóźnienia sieci
             await Task.Delay(100);
-            
             var playerData = new PlayerData();
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            playerData.AddZawomon(ZawomonGenerator.GenerateRandomZawomon());
-            
-            // Zawomon zaczyna bez żadnych spellów - musi je nauczyć się sam
-            // var zawomon = playerData.Zawomons[0];
-            // zawomon.LearnSpell(GetAllSpells()[5]); // Usunięte automatyczne dodawanie
-            
+            for (int i = 0; i < 15; i++)
+                playerData.AddCreature(CreatureGenerator.GenerateRandomZawomon());
             return playerData;
+        }
+
+        // Pobranie wszystkich zasobów gracza na raz
+        public static async Task<PlayerResources> GetPlayerResourcesAsync() {
+            await Task.Delay(50);
+            return new PlayerResources {
+                gold = _resources.gold,
+                wood = _resources.wood,
+                stone = _resources.stone,
+                gems = _resources.gems
+            };
+        }
+
+        // Aktualizacja pojedynczego zasobu (można wywołać po zakupie itp.)
+        public static async Task<bool> UpdatePlayerGoldAsync(int newGold) {
+            await Task.Delay(100);
+            _resources.gold = newGold;
+            OnPlayerGoldUpdated?.Invoke(newGold);
+            OnPlayerResourcesUpdated?.Invoke(_resources);
+            return true;
+        }
+        public static async Task<bool> UpdatePlayerWoodAsync(int newWood) {
+            await Task.Delay(100);
+            _resources.wood = newWood;
+            OnPlayerWoodUpdated?.Invoke(newWood);
+            OnPlayerResourcesUpdated?.Invoke(_resources);
+            return true;
+        }
+        public static async Task<bool> UpdatePlayerStoneAsync(int newStone) {
+            await Task.Delay(100);
+            _resources.stone = newStone;
+            OnPlayerStoneUpdated?.Invoke(newStone);
+            OnPlayerResourcesUpdated?.Invoke(_resources);
+            return true;
+        }
+        public static async Task<bool> UpdatePlayerGemsAsync(int newGems) {
+            await Task.Delay(100);
+            _resources.gems = newGems;
+            OnPlayerGemsUpdated?.Invoke(newGems);
+            OnPlayerResourcesUpdated?.Invoke(_resources);
+            return true;
+        }
+
+        // Pojedyncze gettery (opcjonalnie, jeśli chcesz pobierać osobno)
+        public static async Task<int> GetPlayerGoldAsync() {
+            await Task.Delay(50);
+            return _resources.gold;
+        }
+        public static async Task<int> GetPlayerWoodAsync() {
+            await Task.Delay(50);
+            return _resources.wood;
+        }
+        public static async Task<int> GetPlayerStoneAsync() {
+            await Task.Delay(50);
+            return _resources.stone;
+        }
+        public static async Task<int> GetPlayerGemsAsync() {
+            await Task.Delay(50);
+            return _resources.gems;
         }
 
         // Placeholder dla wszystkich dostępnych spellów
@@ -53,8 +116,8 @@ namespace Systems {
         public static async Task<List<LearningSpellData>> GetLearningProgressAsync(int zawomonId) {
             await Task.Delay(100);
             // Zwróć aktualny postęp z lokalnego GameManager
-            if (GameManager.Instance?.PlayerData?.Zawomons.Count > 0) {
-                return GameManager.Instance.PlayerData.Zawomons[0].LearningSpells;
+            if (GameManager.Instance?.PlayerData?.creatures.Count > 0) {
+                return GameManager.Instance.PlayerData.creatures[0].learningSpells;
             }
             return new List<LearningSpellData>();
         }
@@ -66,80 +129,70 @@ namespace Systems {
             return true;
         }
 
-        // Placeholder dla pobrania golda gracza
-        public static async Task<int> GetPlayerGoldAsync() {
-            await Task.Delay(50);
-            return 100; // Statyczny gold na razie
-        }
-
-        // Placeholder dla aktualizacji golda gracza
-        public static async Task<bool> UpdatePlayerGoldAsync(int newGold) {
-            await Task.Delay(100);
-            return true;
-        }
+    // ...pozostałe metody bez zmian...
 
         // Statyczna lista spellów (na razie lokalna, później z bazy)
         private static List<Spell> GetAllSpells() {
             return new List<Spell> {
                 new Spell {
-                    Name = "Basic Attack",
-                    Type = SpellType.Attack,
-                    RequiredClass = null,
-                    RequiredLevel = 1,
-                    Power = 10,
-                    Description = "Basic Attack",
-                    LearnTimeSeconds = 10f,
-                    RequiresLearning = true
+                    name = "Basic Attack",
+                    type = SpellType.Attack,
+                    requiredClass = null,
+                    requiredLevel = 1,
+                    power = 10,
+                    description = "Basic Attack",
+                    learnTimeSeconds = 10f,
+                    requiresLearning = true
                 },
                 new Spell {
-                    Name = "Basic Attack 2",
-                    Type = SpellType.Attack,
-                    RequiredClass = null,
-                    RequiredLevel = 1,
-                    Power = 10,
-                    Description = "Basic Attack",
-                    LearnTimeSeconds = 10f,
-                    RequiresLearning = true
+                    name = "Basic Attack 2",
+                    type = SpellType.Attack,
+                    requiredClass = null,
+                    requiredLevel = 1,
+                    power = 10,
+                    description = "Basic Attack",
+                    learnTimeSeconds = 10f,
+                    requiresLearning = true
                 },
                 new Spell {
-                    Name = "Ognisty Atak",
-                    Type = SpellType.Attack,
-                    RequiredClass = ZawomonClass.Fire,
-                    RequiredLevel = 1,
-                    Power = 15,
-                    Description = "Silny atak ogniem.",
-                    LearnTimeSeconds = 5f,
-                    RequiresLearning = true
+                    name = "Ognisty Atak",
+                    type = SpellType.Attack,
+                    requiredClass = CreatureElement.Fire,
+                    requiredLevel = 1,
+                    power = 15,
+                    description = "Silny atak ogniem.",
+                    learnTimeSeconds = 5f,
+                    requiresLearning = true
                 },
                 new Spell {
-                    Name = "Wodny Strumień",
-                    Type = SpellType.Attack,
-                    RequiredClass = ZawomonClass.Water,
-                    RequiredLevel = 1,
-                    Power = 13,
-                    Description = "Atak wodnym strumieniem.",
-                    LearnTimeSeconds = 5f,
-                    RequiresLearning = true
+                    name = "Wodny Strumień",
+                    type = SpellType.Attack,
+                    requiredClass = CreatureElement.Water,
+                    requiredLevel = 1,
+                    power = 13,
+                    description = "Atak wodnym strumieniem.",
+                    learnTimeSeconds = 5f,
+                    requiresLearning = true
                 },
                 new Spell {
-                    Name = "Leczenie",
-                    Type = SpellType.Heal,
-                    RequiredClass = null,
-                    RequiredLevel = 2,
-                    Power = 20,
-                    Description = "Przywraca HP.",
-                    LearnTimeSeconds = 5f,
-                    RequiresLearning = true
+                    name = "Leczenie",
+                    type = SpellType.Heal,
+                    requiredClass = null,
+                    requiredLevel = 2,
+                    power = 20,
+                    description = "Przywraca HP.",
+                    learnTimeSeconds = 5f,
+                    requiresLearning = true
                 },
                 new Spell {
-                    Name = "Szybki Cios",
-                    Type = SpellType.Attack,
-                    RequiredClass = null,
-                    RequiredLevel = 1,
-                    Power = 8,
-                    Description = "Uniwersalny szybki atak.",
-                    LearnTimeSeconds = 0f,
-                    RequiresLearning = false
+                    name = "Szybki Cios",
+                    type = SpellType.Attack,
+                    requiredClass = null,
+                    requiredLevel = 1,
+                    power = 8,
+                    description = "Uniwersalny szybki atak.",
+                    learnTimeSeconds = 0f,
+                    requiresLearning = false
                 }
             };
         }

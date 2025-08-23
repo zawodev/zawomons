@@ -7,7 +7,7 @@ using System.Collections.Generic;
 namespace UI {
     public class SpellButtonHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler {
         public Spell spell;
-        public Zawomon zawomon;
+        public Creature zawomon;
         public int playerGold;
         
         [Header("UI References")]
@@ -35,32 +35,32 @@ namespace UI {
             if (spell == null) return "Błąd: brak danych spella";
 
             List<string> reasons = new List<string>();
-            if (zawomon.Spells.Exists(s => s.Name == spell.Name))
+            if (zawomon.spells.Exists(s => s.name == spell.name))
                 reasons.Add("Zawomon już zna ten spell");
-            if (zawomon.LearningSpells.Exists(ls => ls.SpellName == spell.Name))
+            if (zawomon.learningSpells.Exists(ls => ls.spellName == spell.name))
                 reasons.Add("Zawomon już uczy się tego spella");
-            if (spell.RequiredClass != null && spell.RequiredClass != zawomon.MainClass && spell.RequiredClass != zawomon.SecondaryClass)
-                reasons.Add($"Wymagana klasa: {spell.RequiredClass}");
-            if (zawomon.Level < spell.RequiredLevel)
-                reasons.Add($"Wymagany poziom: {spell.RequiredLevel}");
+            if (spell.requiredClass != null && spell.requiredClass != zawomon.mainElement && spell.requiredClass != zawomon.secondaryElement)
+                reasons.Add($"Wymagana klasa: {spell.requiredClass}");
+            if (zawomon.level < spell.requiredLevel)
+                reasons.Add($"Wymagany poziom: {spell.requiredLevel}");
             if (playerGold < 10)
                 reasons.Add("Za mało golda (10)");
 
-            bool canLearn = reasons.Count == 0 && spell.RequiresLearning;
+            bool canLearn = reasons.Count == 0 && spell.requiresLearning;
 
             if (canLearn) {
-                return $"<b>{spell.Name}</b>\n" +
-                       $"Typ: {spell.Type}\n" +
-                       $"Moc: {spell.Power}\n" +
+                return $"<b>{spell.name}</b>\n" +
+                       $"Typ: {spell.type}\n" +
+                       $"Moc: {spell.power}\n" +
                        $"Koszt: 10 gold\n" +
-                       $"Czas nauki: {spell.LearnTimeSeconds}s\n" +
-                       $"Opis: {spell.Description}";
+                       $"Czas nauki: {spell.learnTimeSeconds}s\n" +
+                       $"Opis: {spell.description}";
             }
             else {
-                return $"<b>{spell.Name}</b>\n" +
-                       $"Typ: {spell.Type}\n" +
-                       $"Moc: {spell.Power}\n" +
-                       $"Opis: {spell.Description}\n\n" +
+                return $"<b>{spell.name}</b>\n" +
+                       $"Typ: {spell.type}\n" +
+                       $"Moc: {spell.power}\n" +
+                       $"Opis: {spell.description}\n\n" +
                        $"<color=red>Nie można się nauczyć:</color>\n" +
                        string.Join("\n", reasons);
             }
