@@ -214,7 +214,7 @@ namespace Systems.Battle.UI
                 if (i == selectedZawomon)
                     color = participant.hasConfirmedMove ? "green" : "yellow";
                 else if (participant.hasConfirmedMove)
-                    color = "gray";
+                    color = "grey";
                 
                 text += $"<color={color}>{participant.creature.name} ({participant.currentHP}/{participant.creature.maxHP} HP)";
                 
@@ -233,7 +233,7 @@ namespace Systems.Battle.UI
                     text += "\nSpells:\n";
                     for (int i = 0; i < current.creature.spells.Count; i++)
                     {
-                        string spellColor = i == selectedSpell ? "cyan" : "lightgray";
+                        string spellColor = i == selectedSpell ? "red" : "grey";
                         text += $"<color={spellColor}>{current.creature.spells[i].name}</color>\n";
                     }
                 }

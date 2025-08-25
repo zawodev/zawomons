@@ -39,27 +39,29 @@ namespace UI {
                 reasons.Add("Zawomon już zna ten spell");
             if (zawomon.learningSpells.Exists(ls => ls.spellName == spell.name))
                 reasons.Add("Zawomon już uczy się tego spella");
-            if (spell.requiredClass != null && spell.requiredClass != zawomon.mainElement && spell.requiredClass != zawomon.secondaryElement)
-                reasons.Add($"Wymagana klasa: {spell.requiredClass}");
-            if (zawomon.level < spell.requiredLevel)
-                reasons.Add($"Wymagany poziom: {spell.requiredLevel}");
+            if (!spell.CanCreatureLearn(zawomon))
+                reasons.Add("Zawomon nie spełnia wymagań elementowych");
             if (playerGold < 10)
                 reasons.Add("Za mało golda (10)");
 
-            bool canLearn = reasons.Count == 0 && spell.requiresLearning;
+            bool canLearn = reasons.Count == 0 && spell.learnTimeSeconds > 0;
+
+            string effectsText = "Efekty:\n";
+            foreach (var effect in spell.effects)
+            {
+                effectsText += $"- {effect.effectType} ({effect.targetType}): {effect.power}\n";
+            }
 
             if (canLearn) {
                 return $"<b>{spell.name}</b>\n" +
-                       $"Typ: {spell.type}\n" +
-                       $"Moc: {spell.power}\n" +
+                       effectsText +
                        $"Koszt: 10 gold\n" +
                        $"Czas nauki: {spell.learnTimeSeconds}s\n" +
                        $"Opis: {spell.description}";
             }
             else {
                 return $"<b>{spell.name}</b>\n" +
-                       $"Typ: {spell.type}\n" +
-                       $"Moc: {spell.power}\n" +
+                       effectsText +
                        $"Opis: {spell.description}\n\n" +
                        $"<color=red>Nie można się nauczyć:</color>\n" +
                        string.Join("\n", reasons);

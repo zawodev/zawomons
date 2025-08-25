@@ -14,7 +14,7 @@ namespace Systems {
         public event System.Action OnPlayerDataReady;
 
         private async void Awake() {
-            Debug.Log("GameManager Awake");
+            //Debug.Log("GameManager Awake");
             if (Instance != null && Instance != this) {
                 Destroy(gameObject);
                 return;
@@ -40,7 +40,7 @@ namespace Systems {
             // Pobierz postęp nauki z API
             await LoadLearningSpellsAsync();
 
-            Debug.Log("Twój pierwszy zawomon: " + PlayerData.creatures[0].name + ", klasa: " + PlayerData.creatures[0].mainElement + ", kolor: " + PlayerData.creatures[0].color);
+            //Debug.Log("Twój pierwszy zawomon: " + PlayerData.creatures[0].name + ", klasa: " + PlayerData.creatures[0].mainElement + ", kolor: " + PlayerData.creatures[0].color);
         }
 
         private void OnApplicationQuit() {

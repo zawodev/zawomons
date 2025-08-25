@@ -5,7 +5,6 @@ namespace Models {
     public class BattleParticipant {
         public Creature creature;
         public Spell selectedSpell;
-        public bool isVisible = true;
         public int currentHP;
         public int initiativeBonus = 0;
         public bool hasConfirmedMove = false;

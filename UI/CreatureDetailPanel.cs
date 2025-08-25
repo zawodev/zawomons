@@ -47,7 +47,6 @@ namespace UI {
         
         [Header("City Tab UI")]
         public TMP_Text cityNameText;
-        public Transform cityActionsParent;
         
         [Header("Spells Tab UI")]
         public Image spellsCreatureImage;
@@ -344,7 +343,7 @@ namespace UI {
                 }
                 
                 // Get all possible spells for this creature's elements
-                var allSpells = GameManager.Instance?.AllSpells ?? new List<Spell>();
+                var allSpells = Systems.GameAPI.GetAllSpells();
                 var possibleSpells = GetPossibleSpellsForCreature(currentCreature, allSpells);
                 
                 // Create spell slots
@@ -358,11 +357,7 @@ namespace UI {
         }
         
         private List<Spell> GetPossibleSpellsForCreature(Creature creature, List<Spell> allSpells) {
-            return allSpells.Where(spell => 
-                spell.requiredClass == null || 
-                spell.requiredClass == creature.mainElement || 
-                spell.requiredClass == creature.secondaryElement
-            ).ToList();
+            return allSpells.Where(spell => spell.CanCreatureLearn(creature)).ToList();
         }
         
         private void SetupSpellSlot(GameObject spellSlot, Spell spell, bool isKnown) {

@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Linq;
 
 namespace Models {
     public static class CreatureGenerator {
@@ -17,11 +18,24 @@ namespace Models {
             int randomExpBonus = Random.Range(0, maxExpForThisLevel - targetExp);
             int finalExp = targetExp + randomExpBonus;
             
+            // Losowo wybierz czy ma secondary element (50% szans)
+            CreatureElement? secondaryElement = null;
+            if (Random.Range(0, 2) == 1) {
+                // 30% szans na taki sam element (podwójny element)
+                if (Random.Range(0, 100) < 30) {
+                    secondaryElement = zawomonClass;
+                } else {
+                    // Wybierz losowy inny element
+                    CreatureElement randomSecondary = (CreatureElement)Random.Range(0, System.Enum.GetValues(typeof(CreatureElement)).Length);
+                    secondaryElement = randomSecondary;
+                }
+            }
+            
             // Stwórz creature z EXP, level będzie automatycznie obliczony
             Creature zawomon = new Creature {
                 name = name,
                 mainElement = zawomonClass,
-                secondaryElement = null,
+                secondaryElement = secondaryElement,
                 color = color,
                 experience = finalExp,
                 maxHP = Random.Range(30, 51) + level * 5,
@@ -33,7 +47,31 @@ namespace Models {
             zawomon.currentHP = zawomon.maxHP;
             zawomon.currentEnergy = zawomon.maxEnergy;
             
+            // Dodaj losowe proste spelle na starcie
+            AddRandomStarterSpells(zawomon);
+            
             return zawomon;
+        }
+
+        private static void AddRandomStarterSpells(Creature creature)
+        {
+            // Pobierz wszystkie spelle z GameAPI
+            var allSpells = Systems.GameAPI.GetAllSpells();
+
+            // Znajdź proste spelle które creature może się nauczyć (poziom 1 lub 0)
+            var starterSpells = allSpells.Where(s =>
+                s.requiredLevel <= 1 &&
+                s.CanCreatureLearn(creature) &&
+                s.learnTimeSeconds <= 5f // tylko szybko uczące się spelle na start
+            ).ToList();
+
+            // Wybierz losowo 2-4 spelle z tej listy
+            int spellsToLearn = Random.Range(2, 5);
+            var selectedSpells = starterSpells.OrderBy(x => Random.value).Take(spellsToLearn).ToList();
+            foreach (var spell in selectedSpells)
+            {
+                creature.AddSpellInstantly(spell);
+            }
         }
 
         public static Color GetColorForElement(CreatureElement creatureElement) {

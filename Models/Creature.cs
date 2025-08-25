@@ -63,29 +63,36 @@ namespace Models {
         }
 
         public bool LearnSpell(Spell spell) {
-            if (level >= spell.requiredLevel &&
-                (spell.requiredClass == null ||
-                spell.requiredClass == mainElement ||
-                spell.requiredClass == secondaryElement)) {
-                // Sprawdź czy zawomon już zna ten spell
-                if (!spells.Exists(s => s.name == spell.name) &&
+            if (!spell.CanCreatureLearn(this)) {
+                return false;
+            }
+            
+            // Sprawdź czy zawomon już zna ten spell
+            if (!spells.Exists(s => s.name == spell.name) &&
                 !learningSpells.Exists(ls => ls.spellName == spell.name)) {
-                    // Sprawdź czy zawomon już się czegoś uczy
-                    if (learningSpells.Count > 0) {
-                        Debug.Log($"{name} już się uczy innego spella. Poczekaj na zakończenie nauki.");
-                        return false;
-                    }
-
-                    if (spell.requiresLearning) {
-                        StartLearningSpell(spell);
-                    }
-                    else {
-                        spells.Add(spell);
-                    }
-                    return true;
+                // Sprawdź czy zawomon już się czegoś uczy
+                if (learningSpells.Count > 0) {
+                    Debug.Log($"{name} już się uczy innego spella. Poczekaj na zakończenie nauki.");
+                    return false;
                 }
+
+                if (spell.learnTimeSeconds > 0) {
+                    StartLearningSpell(spell);
+                }
+                else {
+                    spells.Add(spell);
+                }
+                return true;
             }
             return false;
+        }
+        
+        public void AddSpellInstantly(Spell spell) {
+            // for debug purposes only, bypass checks
+            if (!spells.Exists(s => s.name == spell.name))
+            {
+                spells.Add(spell);
+            }
         }
 
         public void StartLearningSpell(Spell spell) {

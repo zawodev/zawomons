@@ -15,7 +15,7 @@ namespace Systems.Battle
         public GameObject teamSelectionPanel;
         public GameObject battlePanel;
         
-        private Models.BattleState battleState;
+        private BattleState battleState;
         
         // Events
         public System.Action<string> OnBattleFinished;
@@ -37,9 +37,6 @@ namespace Systems.Battle
             {
                 moveSelectionUI.OnBothTeamsReady += ProcessTurn;
             }
-            
-            // Show team selection UI initially
-            ShowTeamSelection();
         }
         
         void ShowTeamSelection()
@@ -56,7 +53,7 @@ namespace Systems.Battle
         
         public void StartBattle(List<Creature> teamA, List<Creature> teamB)
         {
-            StartBattle(teamA, teamB, Models.BattleMode.Local);
+            StartBattle(teamA, teamB, BattleMode.Local);
         }
         
         public void StartBattle(List<Creature> teamA, List<Creature> teamB, Models.BattleMode mode)
@@ -66,8 +63,8 @@ namespace Systems.Battle
             // Initialize battle state
             battleState = new BattleState
             {
-                teamA = teamA.Select(z => new BattleParticipant(z)).ToList(),
-                teamB = teamB.Select(z => new BattleParticipant(z)).ToList(),
+                teamA = teamA.Select(creature => new BattleParticipant(creature)).ToList(),
+                teamB = teamB.Select(creature => new BattleParticipant(creature)).ToList(),
                 mode = mode,
                 phase = BattlePhase.Selection,
                 currentTurn = 0
@@ -150,17 +147,21 @@ namespace Systems.Battle
         
         void ExecuteSpell(BattleParticipant caster, Spell spell)
         {
-            var targets = GetSpellTargets(caster, spell);
+            Debug.Log($"{caster.creature.name} casts {spell.name}");
             
-            Debug.Log($"{caster.creature.name} casts {spell.name} on {targets.Count} target(s)");
-            
-            foreach (var target in targets)
+            // Wykonaj każdy efekt spella
+            foreach (var effect in spell.effects)
             {
-                ApplySpellEffect(caster, target, spell);
+                var targets = GetSpellTargets(caster, effect);
+                
+                foreach (var target in targets)
+                {
+                    ApplySpellEffect(caster, target, effect);
+                }
             }
         }
         
-        List<BattleParticipant> GetSpellTargets(BattleParticipant caster, Spell spell)
+        List<BattleParticipant> GetSpellTargets(BattleParticipant caster, SpellEffect effect)
         {
             var targets = new List<BattleParticipant>();
             
@@ -169,7 +170,7 @@ namespace Systems.Battle
             var ownTeam = isCasterInTeamA ? battleState.teamA : battleState.teamB;
             var enemyTeam = isCasterInTeamA ? battleState.teamB : battleState.teamA;
             
-            switch (spell.targetType)
+            switch (effect.targetType)
             {
                 case SpellTargetType.Enemy:
                     var firstEnemy = enemyTeam.FirstOrDefault(p => p.IsAlive);
@@ -197,30 +198,30 @@ namespace Systems.Battle
             return targets;
         }
         
-        void ApplySpellEffect(BattleParticipant caster, BattleParticipant target, Spell spell)
+        void ApplySpellEffect(BattleParticipant caster, BattleParticipant target, SpellEffect effect)
         {
-            switch (spell.effectType)
+            switch (effect.effectType)
             {
                 case SpellEffectType.Damage:
-                    int damage = spell.effectValue;
+                    int damage = effect.power;
                     target.currentHP = Mathf.Max(0, target.currentHP - damage);
                     Debug.Log($"{caster.creature.name} deals {damage} damage to {target.creature.name} ({target.currentHP}/{target.creature.maxHP} HP remaining)");
                     break;
                     
                 case SpellEffectType.Heal:
-                    int healing = spell.effectValue;
+                    int healing = effect.power;
                     target.currentHP = Mathf.Min(target.creature.maxHP, target.currentHP + healing);
                     Debug.Log($"{caster.creature.name} heals {target.creature.name} for {healing} HP ({target.currentHP}/{target.creature.maxHP} HP)");
                     break;
                     
                 case SpellEffectType.BuffInitiative:
-                    target.initiativeBonus += spell.effectValue;
-                    Debug.Log($"{caster.creature.name} gives {target.creature.name} +{spell.effectValue} initiative bonus");
+                    target.initiativeBonus += effect.power;
+                    Debug.Log($"{caster.creature.name} gives {target.creature.name} +{effect.power} initiative bonus");
                     break;
                     
                 case SpellEffectType.BuffDamage:
-                    target.creature.damage += spell.effectValue;
-                    Debug.Log($"{caster.creature.name} gives {target.creature.name} +{spell.effectValue} damage bonus");
+                    target.creature.damage += effect.power;
+                    Debug.Log($"{caster.creature.name} gives {target.creature.name} +{effect.power} damage bonus");
                     break;
             }
         }

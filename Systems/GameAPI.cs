@@ -132,67 +132,95 @@ namespace Systems {
     // ...pozostałe metody bez zmian...
 
         // Statyczna lista spellów (na razie lokalna, później z bazy)
-        private static List<Spell> GetAllSpells() {
+        public static List<Spell> GetAllSpells() {
             return new List<Spell> {
                 new Spell {
                     name = "Basic Attack",
-                    type = SpellType.Attack,
-                    requiredClass = null,
+                    elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
                     requiredLevel = 1,
-                    power = 10,
                     description = "Basic Attack",
                     learnTimeSeconds = 10f,
-                    requiresLearning = true
+                    effects = new List<SpellEffect> {
+                        new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 10)
+                    }
                 },
                 new Spell {
                     name = "Basic Attack 2",
-                    type = SpellType.Attack,
-                    requiredClass = null,
+                    elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
                     requiredLevel = 1,
-                    power = 10,
                     description = "Basic Attack",
                     learnTimeSeconds = 10f,
-                    requiresLearning = true
+                    effects = new List<SpellEffect> {
+                        new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 10)
+                    }
                 },
                 new Spell {
                     name = "Ognisty Atak",
-                    type = SpellType.Attack,
-                    requiredClass = CreatureElement.Fire,
+                    elementRequirements = new List<SpellElementRequirement> {
+                        new SpellElementRequirement(CreatureElement.Fire, null) // głównie ognisty
+                    },
                     requiredLevel = 1,
-                    power = 15,
                     description = "Silny atak ogniem.",
                     learnTimeSeconds = 5f,
-                    requiresLearning = true
+                    effects = new List<SpellEffect> {
+                        new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 15)
+                    }
                 },
                 new Spell {
                     name = "Wodny Strumień",
-                    type = SpellType.Attack,
-                    requiredClass = CreatureElement.Water,
+                    elementRequirements = new List<SpellElementRequirement> {
+                        new SpellElementRequirement(CreatureElement.Water, null) // głównie wodny
+                    },
                     requiredLevel = 1,
-                    power = 13,
                     description = "Atak wodnym strumieniem.",
                     learnTimeSeconds = 5f,
-                    requiresLearning = true
+                    effects = new List<SpellEffect> {
+                        new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 13)
+                    }
                 },
                 new Spell {
                     name = "Leczenie",
-                    type = SpellType.Heal,
-                    requiredClass = null,
-                    requiredLevel = 2,
-                    power = 20,
+                    elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
+                    requiredLevel = 0,
                     description = "Przywraca HP.",
-                    learnTimeSeconds = 5f,
-                    requiresLearning = true
+                    learnTimeSeconds = 0f,
+                    effects = new List<SpellEffect> {
+                        new SpellEffect(SpellTargetType.Self, SpellEffectType.Heal, 20)
+                    }
                 },
                 new Spell {
                     name = "Szybki Cios",
-                    type = SpellType.Attack,
-                    requiredClass = null,
+                    elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
                     requiredLevel = 1,
-                    power = 8,
                     description = "Uniwersalny szybki atak.",
                     learnTimeSeconds = 0f,
-                    requiresLearning = false
+                    effects = new List<SpellEffect> {
+                        new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 8)
+                    }
+                },
+                new Spell {
+                    name = "Lodowo-Wodny Wir",
+                    elementRequirements = new List<SpellElementRequirement> {
+                        new SpellElementRequirement(CreatureElement.Ice, CreatureElement.Water), // lód główny, woda secondary
+                        new SpellElementRequirement(CreatureElement.Water, CreatureElement.Ice)  // woda główny, lód secondary
+                    },
+                    requiredLevel = 3,
+                    description = "Potężny atak łączący moc lodu i wody.",
+                    learnTimeSeconds = 15f,
+                    effects = new List<SpellEffect> {
+                        new SpellEffect(SpellTargetType.AllEnemies, SpellEffectType.Damage, 18)
+                    }
+                },
+                new Spell {
+                    name = "Grupowe Leczenie i Wzmocnienie",
+                    elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
+                    requiredLevel = 4,
+                    description = "Leczy wszystkich sojuszników i zwiększa ich inicjatywę.",
+                    learnTimeSeconds = 20f,
+                    effects = new List<SpellEffect> {
+                        new SpellEffect(SpellTargetType.AllAllies, SpellEffectType.Heal, 15),
+                        new SpellEffect(SpellTargetType.AllAllies, SpellEffectType.BuffInitiative, 5)
+                    }
                 }
             };
         }

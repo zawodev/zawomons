@@ -34,11 +34,21 @@ namespace Systems.Battle.UI
         
         // Events
         public System.Action<List<Creature>, List<Creature>> OnTeamsSelected;
-        
+
         void OnEnable()
         {
             if (GameManager.Instance != null)
-                GameManager.Instance.OnPlayerDataReady += OnPlayerDataReadyHandler;
+            {
+                if (GameManager.Instance.PlayerData != null)
+                {
+                    GenerateZawomonGrid();
+                    UpdateInfoText();
+                }
+                else
+                {
+                    GameManager.Instance.OnPlayerDataReady += OnPlayerDataReadyHandler;
+                }
+            }
         }
         
         void OnDisable()
