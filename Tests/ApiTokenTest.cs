@@ -6,6 +6,7 @@ using UnityEngine.Networking;
 using TMPro;
 using Models;
 using Systems;
+using Systems.API;
 using UnityEngine.UI;
 
 public class ApiTokenTest : MonoBehaviour
@@ -16,6 +17,10 @@ public class ApiTokenTest : MonoBehaviour
 
     [Header("API Settings")]
     public string baseUrl = "http://127.0.0.1:8000/api/v1/games/zawomons";
+    
+    [Header("Testing")]
+    [Tooltip("Jeśli jest puste, używa tokena z GameAPI. Jeśli wypełnione, używa tego tokena do testów.")]
+    public string testAuthToken = "";
 
     void Start()
     {
@@ -26,11 +31,25 @@ public class ApiTokenTest : MonoBehaviour
     // Przycisk: Pobierz dane gracza
     public void GetPlayerData()
     {
-        string token = GameAPI.GetAuthToken();
+        string token;
+        
+        // Jeśli testowy token jest wypełniony, użyj go
+        if (!string.IsNullOrEmpty(testAuthToken))
+        {
+            token = testAuthToken;
+            Debug.Log("Używam testowego tokena z edytora Unity");
+        }
+        else
+        {
+            // W przeciwnym razie użyj tokena z GameAPI
+            token = GameAPI.GetAuthToken();
+            Debug.Log("Używam tokena z GameAPI");
+        }
 
         if (string.IsNullOrEmpty(token))
         {
-            playerDataText.text = "BŁĄD: Brak tokena autoryzacji!\nUżytkownik nie jest zalogowany.";
+            playerDataText.text = "BŁĄD: Brak tokena autoryzacji!\n" +
+                                 "Ustaw testowy token w edytorze lub zaloguj się przez GameManager.";
             Debug.LogError("Brak tokena autoryzacji!");
             return;
         }
@@ -41,7 +60,8 @@ public class ApiTokenTest : MonoBehaviour
     IEnumerator GetPlayerDataCoroutine(string authToken)
     {
         string url = baseUrl + "/player-data/";
-        playerDataText.text = "Ładowanie danych gracza...";
+        string tokenSource = !string.IsNullOrEmpty(testAuthToken) ? "testowy" : "GameAPI";
+        playerDataText.text = $"Ładowanie danych gracza...\n(Token: {tokenSource})";
 
         using (UnityWebRequest request = UnityWebRequest.Get(url))
         {
@@ -60,15 +80,14 @@ public class ApiTokenTest : MonoBehaviour
                     // Parse JSON response
                     PlayerDataResponse playerData = JsonUtility.FromJson<PlayerDataResponse>(jsonResponse);
 
-                    playerDataText.text = $"✅ DANE GRACZA POBRANE POMYŚLNIE!\n\n" +
-                                         $"👤 Gracz: {playerData.username}\n" +
-                                         $"📝 Nazwa: {playerData.name}\n" +
-                                         $"💰 Złoto: {playerData.gold}\n" +
-                                         $"🌲 Drewno: {playerData.wood}\n" +
-                                         $"🗿 Kamień: {playerData.stone}\n" +
-                                         $"💎 Gemy: {playerData.gems}\n" +
-                                         $"🐉 Creatures: {playerData.creatures.Length}\n" +
-                                         $"⏰ Ostatnio grał: {FormatDate(playerData.last_played)}";
+                    playerDataText.text = $"DANE GRACZA POBRANE POMYŚLNIE!\n\n" +
+                                         $"Gracz: {playerData.username}\n" +
+                                         $"Złoto: {playerData.gold}\n" +
+                                         $"Drewno: {playerData.wood}\n" +
+                                         $"Kamień: {playerData.stone}\n" +
+                                         $"Gemy: {playerData.gems}\n" +
+                                         $"Creatures: {playerData.creatures.Length}\n" +
+                                         $"Ostatnio grał: {FormatDate(playerData.last_played)}";
                 }
                 catch (Exception e)
                 {

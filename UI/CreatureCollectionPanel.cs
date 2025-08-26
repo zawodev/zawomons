@@ -57,6 +57,18 @@ namespace UI {
         private void OnEnable() {
             LoadSettingsFromPlayerPrefs();
             RefreshCreaturesList();
+            
+            // Subskrybuj eventy GameManager
+            if (GameManager.Instance != null) {
+                GameManager.Instance.OnCreatureAdded += OnCreatureAdded;
+            }
+        }
+        
+        private void OnDisable() {
+            // Odsubskrybuj eventy GameManager
+            if (GameManager.Instance != null) {
+                GameManager.Instance.OnCreatureAdded -= OnCreatureAdded;
+            }
         }
         
         private void InitializeUI() {
@@ -371,6 +383,10 @@ namespace UI {
             if (searchInput != null) {
                 searchInput.onValueChanged.RemoveAllListeners();
             }
+        }
+        
+        private void OnCreatureAdded(Creature newCreature) {
+            RefreshCreaturesList();
         }
     }
 }

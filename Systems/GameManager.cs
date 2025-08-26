@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Models;
 using Unity.VisualScripting;
+using Systems.API;
 
 namespace Systems {
     /// <summary>
@@ -29,11 +30,11 @@ namespace Systems {
 
         // Eventy do powiadamiania innych systemów o zmianach danych gracza
         public event System.Action OnPlayerDataReady;
-        public event System.Action<PlayerData> OnPlayerResourcesUpdated;
         public event System.Action<int> OnPlayerGoldUpdated;
         public event System.Action<int> OnPlayerWoodUpdated;
         public event System.Action<int> OnPlayerStoneUpdated;
         public event System.Action<int> OnPlayerGemsUpdated;
+        public event System.Action<Creature> OnCreatureAdded;
 
         public async void SetAuthToken(string token)
         {
@@ -44,8 +45,13 @@ namespace Systems {
             playerData = await GameAPI.GetPlayerDataAsync();
             if (playerData != null)
             {
+                // Sprawdź czy gracz może otrzymać startowego stworka
+                if (playerData.can_claim_start_creature)
+                {
+                    await GiveStarterCreature();
+                }
+                
                 OnPlayerDataReady?.Invoke();
-                OnPlayerResourcesUpdated?.Invoke(playerData);
                 OnPlayerGoldUpdated?.Invoke(playerData.gold);
                 OnPlayerWoodUpdated?.Invoke(playerData.wood);
                 OnPlayerStoneUpdated?.Invoke(playerData.stone);
@@ -66,13 +72,15 @@ namespace Systems {
 
             allSpells = GetAllSpellsFromAPI();
         }
-        //player data getter
+
         public PlayerData GetPlayerData()
         {
             return playerData;
         }
-
-        // Metoda do odświeżania danych gracza z API
+        public bool IsPlayerDataLoaded()
+        {
+            return playerData != null;
+        }
         public async Task RefreshPlayerData()
         {
             if (string.IsNullOrEmpty(GameAPI.GetAuthToken()))
@@ -86,7 +94,6 @@ namespace Systems {
             {
                 playerData = newData;
                 OnPlayerDataReady?.Invoke();
-                OnPlayerResourcesUpdated?.Invoke(playerData);
                 OnPlayerGoldUpdated?.Invoke(playerData.gold);
                 OnPlayerWoodUpdated?.Invoke(playerData.wood);
                 OnPlayerStoneUpdated?.Invoke(playerData.stone);
@@ -94,89 +101,122 @@ namespace Systems {
             }
         }
 
-        // Metody do aktualizacji poszczególnych zasobów (w przyszłości będą wysyłać do API)
-        public void UpdateGold(int newGold)
+        // Metody do aktualizacji poszczególnych zasobów z automatycznym zapisem do API
+        public async void UpdateGold(int newGold)
         {
             if (playerData != null)
             {
                 playerData.gold = newGold;
                 OnPlayerGoldUpdated?.Invoke(newGold);
-                OnPlayerResourcesUpdated?.Invoke(playerData);
+                
+                // Automatycznie zapisz do API
+                await GameAPI.SetSingleResourceAsync("gold", newGold);
             }
         }
 
-        public void UpdateWood(int newWood)
+        public async void UpdateWood(int newWood)
         {
             if (playerData != null)
             {
                 playerData.wood = newWood;
                 OnPlayerWoodUpdated?.Invoke(newWood);
-                OnPlayerResourcesUpdated?.Invoke(playerData);
+                
+                // Automatycznie zapisz do API
+                await GameAPI.SetSingleResourceAsync("wood", newWood);
             }
         }
 
-        public void UpdateStone(int newStone)
+        public async void UpdateStone(int newStone)
         {
             if (playerData != null)
             {
                 playerData.stone = newStone;
                 OnPlayerStoneUpdated?.Invoke(newStone);
-                OnPlayerResourcesUpdated?.Invoke(playerData);
+                
+                // Automatycznie zapisz do API
+                await GameAPI.SetSingleResourceAsync("stone", newStone);
             }
         }
 
-        public void UpdateGems(int newGems)
+        public async void UpdateGems(int newGems)
         {
             if (playerData != null)
             {
                 playerData.gems = newGems;
                 OnPlayerGemsUpdated?.Invoke(newGems);
-                OnPlayerResourcesUpdated?.Invoke(playerData);
-            }
-        }
-
-        // Metoda pomocnicza do sprawdzania czy dane są załadowane
-        public bool IsPlayerDataLoaded()
-        {
-            return playerData != null;
-        }
-
-        // Metody do synchronizacji z API (w przyszłości będą wysyłać dane na serwer)
-        public async Task SavePlayerDataToAPI()
-        {
-            if (playerData != null)
-            {
-                bool success = await GameAPI.SavePlayerDataAsync(playerData);
-                if (success)
-                {
-                    Debug.Log("Dane gracza zapisane pomyślnie na serwerze");
-                }
-                else
-                {
-                    Debug.LogError("Błąd podczas zapisywania danych gracza");
-                }
-            }
-        }
-
-        public async Task UpdateResourcesOnAPI()
-        {
-            if (playerData != null)
-            {
-                bool success = await GameAPI.UpdatePlayerResourcesAsync(
-                    playerData.gold, 
-                    playerData.wood, 
-                    playerData.stone, 
-                    playerData.gems
-                );
                 
-                if (success)
-                {
-                    Debug.Log("Zasoby gracza zaktualizowane na serwerze");
-                }
-                else
-                {
-                    Debug.LogError("Błąd podczas aktualizacji zasobów gracza");
-                }
+                // Automatycznie zapisz do API
+                await GameAPI.SetSingleResourceAsync("gems", newGems);
+            }
+        }
+
+        // Metoda do dawania startowego stworka nowym graczom
+        private async Task GiveStarterCreature()
+        {
+            if (playerData == null || !playerData.can_claim_start_creature)
+                return;
+
+            Debug.Log("Dajemy startowego stworka nowemu graczowi!");
+            
+            // Wygeneruj losowego stworka (poziom 1)
+            Creature starterCreature = CreatureGenerator.GenerateRandomZawomon(1);
+            
+            // Wyślij stworka do backendu
+            bool success = await GameAPI.AddCreatureAsync(starterCreature);
+            
+            if (success)
+            {
+                Debug.Log($"Pomyślnie dodano startowego stworka: {starterCreature.name} (Poziom {starterCreature.level})");
+                
+                // Dodaj stworka do lokalnych danych gracza
+                playerData.AddCreature(starterCreature);
+                
+                // Zmień flagę na false lokalnie
+                playerData.can_claim_start_creature = false;
+                
+                // Powiadom UI o dodaniu nowego stworka
+                OnCreatureAdded?.Invoke(starterCreature);
+            }
+            else
+            {
+                Debug.LogError("Błąd podczas zapisywania startowego stworka do API");
+            }
+        }
+
+        // Wygodne metody do dodawania/odejmowania zasobów
+        public void AddGold(int amount)
+        {
+            if (playerData != null)
+            {
+                int newAmount = Mathf.Max(0, playerData.gold + amount);
+                UpdateGold(newAmount);
+            }
+        }
+
+        public void AddWood(int amount)
+        {
+            if (playerData != null)
+            {
+                int newAmount = Mathf.Max(0, playerData.wood + amount);
+                UpdateWood(newAmount);
+            }
+        }
+
+        public void AddStone(int amount)
+        {
+            if (playerData != null)
+            {
+                int newAmount = Mathf.Max(0, playerData.stone + amount);
+                UpdateStone(newAmount);
+            }
+        }
+
+        public void AddGems(int amount)
+        {
+            if (playerData != null)
+            {
+                int newAmount = Mathf.Max(0, playerData.gems + amount);
+                UpdateGems(newAmount);
             }
         }
 
@@ -186,7 +226,7 @@ namespace Systems {
             return allSpells;
         }
 
-        public List<Spell> GetAllSpellsFromAPI()
+        private List<Spell> GetAllSpellsFromAPI()
         {
             // tymczasowo zwracamy hardcoded spelle
             return new List<Spell> {

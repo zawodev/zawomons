@@ -11,7 +11,6 @@ namespace Models {
         public CreatureElement mainElement;
         public CreatureElement? secondaryElement;
         public Color color;
-        public string colorString; // Do przechowywania oryginalnego koloru z API
         public int experience;
         public int maxHP;
         public int currentHP;

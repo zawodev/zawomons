@@ -20,7 +20,6 @@ namespace UI {
             {
                 // Subskrybuj eventy
                 GameManager.Instance.OnPlayerDataReady += OnPlayerDataReady;
-                GameManager.Instance.OnPlayerResourcesUpdated += OnResourcesUpdated;
                 GameManager.Instance.OnPlayerGoldUpdated += OnGoldUpdated;
                 GameManager.Instance.OnPlayerWoodUpdated += OnWoodUpdated;
                 GameManager.Instance.OnPlayerStoneUpdated += OnStoneUpdated;
@@ -40,7 +39,6 @@ namespace UI {
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.OnPlayerDataReady -= OnPlayerDataReady;
-                GameManager.Instance.OnPlayerResourcesUpdated -= OnResourcesUpdated;
                 GameManager.Instance.OnPlayerGoldUpdated -= OnGoldUpdated;
                 GameManager.Instance.OnPlayerWoodUpdated -= OnWoodUpdated;
                 GameManager.Instance.OnPlayerStoneUpdated -= OnStoneUpdated;
@@ -87,7 +85,6 @@ namespace UI {
             RefreshAll();
         }
 
-        private void OnResourcesUpdated(PlayerData playerData) => SetTexts(playerData);
         private void OnGoldUpdated(int newGold) => goldText.text = newGold.ToString();
         private void OnWoodUpdated(int newWood) => woodText.text = newWood.ToString();
         private void OnStoneUpdated(int newStone) => stoneText.text = newStone.ToString();

@@ -7,7 +7,6 @@ namespace Models
     {
         public int id;
         public string username;
-        public string name;
         public List<Creature> creatures = new List<Creature>();
         public int gold;
         public int wood;
@@ -15,6 +14,7 @@ namespace Models
         public int gems;
         public string lastPlayed;
         public string createdAt;
+        public bool can_claim_start_creature;
 
         public void AddCreature(Creature creature)
         {
