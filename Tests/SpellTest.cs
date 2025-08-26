@@ -17,7 +17,7 @@ namespace Tests {
             }
             
             // Test spelli z wymaganiami elementowymi
-            var allSpells = GameAPI.GetAllSpells();
+            var allSpells = GameManager.Instance.GetAllSpells();
             Debug.Log($"\nAll available spells: {allSpells.Count}");
             
             foreach (var spell in allSpells) {

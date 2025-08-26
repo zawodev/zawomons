@@ -43,6 +43,7 @@ namespace Models {
 
     public class Spell
     {
+        public int id; // unikalny identyfikator spella
         public string name;
         public string description;
         public List<SpellElementRequirement> elementRequirements = new List<SpellElementRequirement>(); // lista możliwych kombinacji elementów

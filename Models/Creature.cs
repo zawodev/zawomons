@@ -6,17 +6,19 @@ namespace Models {
 
     [System.Serializable]
     public class Creature {
+        public int id;
         public string name;
         public CreatureElement mainElement;
         public CreatureElement? secondaryElement;
         public Color color;
-        public int experience; // Podstawowa wartość EXP
+        public string colorString; // Do przechowywania oryginalnego koloru z API
+        public int experience;
         public int maxHP;
         public int currentHP;
         public int maxEnergy;
         public int currentEnergy;
         public int damage;
-        public int initiative; // inicjatywa do walki
+        public int initiative;
         public List<Spell> spells = new List<Spell>();
         public List<LearningSpellData> learningSpells = new List<LearningSpellData>();
 

@@ -138,8 +138,8 @@ namespace UI {
         }
         
         private void LoadCreaturesData() {
-            if (GameManager.Instance?.PlayerData?.creatures != null) {
-                allCreatures = new List<Creature>(GameManager.Instance.PlayerData.creatures);
+            if (GameManager.Instance != null && GameManager.Instance.IsPlayerDataLoaded()) {
+                allCreatures = new List<Creature>(GameManager.Instance.GetPlayerData().creatures);
             } else {
                 Debug.LogWarning("No creatures data available from GameManager");
                 allCreatures.Clear();

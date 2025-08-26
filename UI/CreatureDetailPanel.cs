@@ -343,7 +343,7 @@ namespace UI {
                 }
                 
                 // Get all possible spells for this creature's elements
-                var allSpells = Systems.GameAPI.GetAllSpells();
+                var allSpells = Systems.GameManager.Instance.GetAllSpells();
                 var possibleSpells = GetPossibleSpellsForCreature(currentCreature, allSpells);
                 
                 // Create spell slots

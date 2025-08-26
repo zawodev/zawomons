@@ -39,7 +39,7 @@ namespace Systems.Battle.UI
         {
             if (GameManager.Instance != null)
             {
-                if (GameManager.Instance.PlayerData != null)
+                if (GameManager.Instance.IsPlayerDataLoaded())
                 {
                     GenerateZawomonGrid();
                     UpdateInfoText();
@@ -76,7 +76,7 @@ namespace Systems.Battle.UI
                 if (btn != null) Destroy(btn);
             zawomonButtons.Clear();
             
-            var zawomons = GameManager.Instance.PlayerData.creatures;
+            var zawomons = GameManager.Instance.GetPlayerData().creatures;
             totalZawomons = zawomons.Count;
             
             for (int i = 0; i < totalZawomons; i++)
@@ -111,7 +111,7 @@ namespace Systems.Battle.UI
         
         public void UpdateGridHighlights()
         {
-            var zawomons = GameManager.Instance.PlayerData.creatures;
+            var zawomons = GameManager.Instance.GetPlayerData().creatures;
             
             for (int i = 0; i < zawomonButtons.Count && i < zawomons.Count; i++)
             {
@@ -158,9 +158,9 @@ namespace Systems.Battle.UI
         
         public void ToggleZawomon(int idx, bool toTeamA)
         {
-            if (idx >= GameManager.Instance.PlayerData.creatures.Count) return;
+            if (idx >= GameManager.Instance.GetPlayerData().creatures.Count) return;
             
-            var zaw = GameManager.Instance.PlayerData.creatures[idx];
+            var zaw = GameManager.Instance.GetPlayerData().creatures[idx];
             
             if (toTeamA)
             {

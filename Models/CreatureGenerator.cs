@@ -7,9 +7,9 @@ namespace Models {
         private static string[] nameSuffixes = {"mon", "gon", "rus", "lek", "tor", "nix", "zar"};
 
         public static Creature GenerateRandomZawomon(int level = 1) {
-            CreatureElement zawomonClass = (CreatureElement)Random.Range(0, System.Enum.GetValues(typeof(CreatureElement)).Length);
+            CreatureElement creatureElement = (CreatureElement)Random.Range(0, System.Enum.GetValues(typeof(CreatureElement)).Length);
             string name = namePrefixes[Random.Range(0, namePrefixes.Length)] + nameSuffixes[Random.Range(0, nameSuffixes.Length)];
-            Color color = GetColorForElement(zawomonClass);
+            Color color = GetColorForElement(creatureElement);
             
             // Oblicz EXP na podstawie poziomu
             int targetExp = Creature.GetExpForLevel(level);
@@ -23,7 +23,7 @@ namespace Models {
             if (Random.Range(0, 2) == 1) {
                 // 30% szans na taki sam element (podwójny element)
                 if (Random.Range(0, 100) < 30) {
-                    secondaryElement = zawomonClass;
+                    secondaryElement = creatureElement;
                 } else {
                     // Wybierz losowy inny element
                     CreatureElement randomSecondary = (CreatureElement)Random.Range(0, System.Enum.GetValues(typeof(CreatureElement)).Length);
@@ -32,9 +32,9 @@ namespace Models {
             }
             
             // Stwórz creature z EXP, level będzie automatycznie obliczony
-            Creature zawomon = new Creature {
+            Creature creature = new Creature {
                 name = name,
-                mainElement = zawomonClass,
+                mainElement = creatureElement,
                 secondaryElement = secondaryElement,
                 color = color,
                 experience = finalExp,
@@ -44,19 +44,19 @@ namespace Models {
             };
             
             // Ustaw currentHP i currentEnergy na max
-            zawomon.currentHP = zawomon.maxHP;
-            zawomon.currentEnergy = zawomon.maxEnergy;
+            creature.currentHP = creature.maxHP;
+            creature.currentEnergy = creature.maxEnergy;
             
             // Dodaj losowe proste spelle na starcie
-            AddRandomStarterSpells(zawomon);
+            AddRandomStarterSpells(creature);
             
-            return zawomon;
+            return creature;
         }
 
         private static void AddRandomStarterSpells(Creature creature)
         {
             // Pobierz wszystkie spelle z GameAPI
-            var allSpells = Systems.GameAPI.GetAllSpells();
+            var allSpells = Systems.GameManager.Instance.GetAllSpells();
 
             // Znajdź proste spelle które creature może się nauczyć (poziom 1 lub 0)
             var starterSpells = allSpells.Where(s =>

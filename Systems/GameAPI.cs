@@ -1,228 +1,159 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.Networking;
 using Models;
 
 namespace Systems {
-    public static class GameAPI {
-        // Placeholder dla ID gracza (później z logowania)
-        private static int currentPlayerId = 1;
-
-        // Struktura na globalne zasoby gracza
-        public class PlayerResources {
-            public int gold;
-            public int wood;
-            public int stone;
-            public int gems;
+    /// <summary>
+    /// GameAPI - statyczna klasa do komunikacji z backendem API
+    /// 
+    /// Odpowiedzialności:
+    /// - Wykonywanie HTTP requestów do API
+    /// - Parsowanie odpowiedzi z API do modeli gry
+    /// - Zarządzanie tokenem autoryzacji
+    /// - Konwersja między formatami API a modelami gry
+    /// 
+    /// Metody:
+    /// - GetPlayerDataAsync: pobiera dane gracza z API
+    /// - SavePlayerDataAsync: zapisuje dane gracza (TODO)
+    /// - UpdatePlayerResourcesAsync: aktualizuje zasoby gracza (TODO)
+    /// </summary>
+    public static class GameAPI
+    {
+        private static readonly string BASE_URL = "http://127.0.0.1:8000/api/v1/games/zawomons";
+        private static string authToken;
+        
+        public static void SetAuthToken(string token)
+        {
+            authToken = token;
+        }
+        
+        public static string GetAuthToken()
+        {
+            return authToken;
         }
 
-        // Eventy do powiadamiania UI o zmianach zasobów
-        public static event System.Action<PlayerResources> OnPlayerResourcesUpdated;
-        public static event System.Action<int> OnPlayerGoldUpdated;
-        public static event System.Action<int> OnPlayerWoodUpdated;
-        public static event System.Action<int> OnPlayerStoneUpdated;
-        public static event System.Action<int> OnPlayerGemsUpdated;
+        public static async Task<PlayerData> GetPlayerDataAsync()
+        {
+            if (string.IsNullOrEmpty(authToken))
+            {
+                Debug.LogError("Brak tokena autoryzacji!");
+                return null;
+            }
 
-        // Przechowywane zasoby (symulacja bazy)
-        private static PlayerResources _resources = new PlayerResources {
-            gold = 100,
-            wood = 50,
-            stone = 30,
-            gems = 5
-        };
+            string url = BASE_URL + "/player-data/";
+            
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
+            {
+                request.SetRequestHeader("Authorization", "Bearer " + authToken);
+                
+                var operation = request.SendWebRequest();
+                while (!operation.isDone)
+                {
+                    await Task.Yield();
+                }
 
-        // Placeholder dla danych gracza
-        public static async Task<PlayerData> GetPlayerDataAsync() {
-            // Symulacja opóźnienia sieci
-            await Task.Delay(100);
-            var playerData = new PlayerData();
-            for (int i = 0; i < 15; i++)
-                playerData.AddCreature(CreatureGenerator.GenerateRandomZawomon());
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    string jsonResponse = request.downloadHandler.text;
+                    Debug.Log("Player Data Response: " + jsonResponse);
+                    
+                    try
+                    {
+                        PlayerDataResponse apiResponse = JsonUtility.FromJson<PlayerDataResponse>(jsonResponse);
+                        return ConvertToPlayerData(apiResponse);
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError("Błąd parsowania JSON: " + e.Message);
+                        return null;
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"Error getting player data: {request.error}, Code: {request.responseCode}");
+                    return null;
+                }
+            }
+        }
+
+        private static PlayerData ConvertToPlayerData(PlayerDataResponse apiResponse)
+        {
+            PlayerData playerData = new PlayerData();
+            playerData.id = apiResponse.id;
+            playerData.username = apiResponse.username;
+            playerData.name = apiResponse.name;
+            playerData.gold = apiResponse.gold;
+            playerData.wood = apiResponse.wood;
+            playerData.stone = apiResponse.stone;
+            playerData.gems = apiResponse.gems;
+            playerData.lastPlayed = apiResponse.last_played;
+            playerData.createdAt = apiResponse.created_at;
+
+            // Convert creatures
+            playerData.creatures = new List<Creature>();
+            foreach (var creatureResponse in apiResponse.creatures)
+            {
+                Creature creature = new Creature();
+                creature.id = creatureResponse.id;
+                creature.name = creatureResponse.name;
+                creature.mainElement = ParseElement(creatureResponse.main_element);
+                creature.secondaryElement = ParseElement(creatureResponse.secondary_element);
+                creature.colorString = creatureResponse.color;
+                
+                // Konwertuj string koloru na Color (można to usprawnić później)
+                if (ColorUtility.TryParseHtmlString(creatureResponse.color, out Color parsedColor))
+                {
+                    creature.color = parsedColor;
+                }
+                else
+                {
+                    creature.color = Color.white; // Domyślny kolor
+                }
+                
+                creature.experience = creatureResponse.experience;
+                creature.maxHP = creatureResponse.max_hp;
+                creature.currentHP = creatureResponse.current_hp;
+                creature.maxEnergy = creatureResponse.max_energy;
+                creature.currentEnergy = creatureResponse.current_energy;
+                creature.damage = creatureResponse.damage;
+                creature.initiative = creatureResponse.initiative;
+                
+                playerData.creatures.Add(creature);
+            }
+
             return playerData;
         }
 
-        // Pobranie wszystkich zasobów gracza na raz
-        public static async Task<PlayerResources> GetPlayerResourcesAsync() {
-            await Task.Delay(50);
-            return new PlayerResources {
-                gold = _resources.gold,
-                wood = _resources.wood,
-                stone = _resources.stone,
-                gems = _resources.gems
-            };
+        private static CreatureElement ParseElement(string elementString)
+        {
+            if (string.IsNullOrEmpty(elementString))
+                return CreatureElement.None;
+                
+            if (System.Enum.TryParse<CreatureElement>(elementString, true, out CreatureElement element))
+                return element;
+            
+            return CreatureElement.None;
         }
 
-        // Aktualizacja pojedynczego zasobu (można wywołać po zakupie itp.)
-        public static async Task<bool> UpdatePlayerGoldAsync(int newGold) {
-            await Task.Delay(100);
-            _resources.gold = newGold;
-            OnPlayerGoldUpdated?.Invoke(newGold);
-            OnPlayerResourcesUpdated?.Invoke(_resources);
-            return true;
-        }
-        public static async Task<bool> UpdatePlayerWoodAsync(int newWood) {
-            await Task.Delay(100);
-            _resources.wood = newWood;
-            OnPlayerWoodUpdated?.Invoke(newWood);
-            OnPlayerResourcesUpdated?.Invoke(_resources);
-            return true;
-        }
-        public static async Task<bool> UpdatePlayerStoneAsync(int newStone) {
-            await Task.Delay(100);
-            _resources.stone = newStone;
-            OnPlayerStoneUpdated?.Invoke(newStone);
-            OnPlayerResourcesUpdated?.Invoke(_resources);
-            return true;
-        }
-        public static async Task<bool> UpdatePlayerGemsAsync(int newGems) {
-            await Task.Delay(100);
-            _resources.gems = newGems;
-            OnPlayerGemsUpdated?.Invoke(newGems);
-            OnPlayerResourcesUpdated?.Invoke(_resources);
+        // Placeholder metoda do zapisywania danych gracza w przyszłości
+        public static async Task<bool> SavePlayerDataAsync(PlayerData playerData)
+        {
+            // TODO: Implementacja zapisywania danych do API
+            Debug.Log("SavePlayerDataAsync - TODO: Implement API call");
+            await Task.Yield(); // Placeholder
             return true;
         }
 
-        // Pojedyncze gettery (opcjonalnie, jeśli chcesz pobierać osobno)
-        public static async Task<int> GetPlayerGoldAsync() {
-            await Task.Delay(50);
-            return _resources.gold;
-        }
-        public static async Task<int> GetPlayerWoodAsync() {
-            await Task.Delay(50);
-            return _resources.wood;
-        }
-        public static async Task<int> GetPlayerStoneAsync() {
-            await Task.Delay(50);
-            return _resources.stone;
-        }
-        public static async Task<int> GetPlayerGemsAsync() {
-            await Task.Delay(50);
-            return _resources.gems;
-        }
-
-        // Placeholder dla wszystkich dostępnych spellów
-        public static async Task<List<Spell>> GetAllSpellsAsync() {
-            await Task.Delay(50);
-            return GetAllSpells();
-        }
-
-        // Placeholder dla nauki spella
-        public static async Task<bool> LearnSpellAsync(int zawomonId, int spellId) {
-            await Task.Delay(200);
-            // Symulacja sukcesu/niepowodzenia
+        // Placeholder metoda do aktualizacji zasobów gracza
+        public static async Task<bool> UpdatePlayerResourcesAsync(int gold, int wood, int stone, int gems)
+        {
+            // TODO: Implementacja aktualizacji zasobów przez API
+            Debug.Log($"UpdatePlayerResourcesAsync - TODO: Implement API call for Gold:{gold}, Wood:{wood}, Stone:{stone}, Gems:{gems}");
+            await Task.Yield(); // Placeholder
             return true;
-        }
-
-        // Placeholder dla sprawdzenia postępu nauki
-        public static async Task<List<LearningSpellData>> GetLearningProgressAsync(int zawomonId) {
-            await Task.Delay(100);
-            // Zwróć aktualny postęp z lokalnego GameManager
-            if (GameManager.Instance?.PlayerData?.creatures.Count > 0) {
-                return GameManager.Instance.PlayerData.creatures[0].learningSpells;
-            }
-            return new List<LearningSpellData>();
-        }
-
-        // Placeholder dla zapisu postępu nauki
-        public static async Task<bool> SaveLearningProgressAsync(int zawomonId, List<LearningSpellData> learningSpells) {
-            await Task.Delay(150);
-            // Symulacja zapisu do bazy danych
-            return true;
-        }
-
-    // ...pozostałe metody bez zmian...
-
-        // Statyczna lista spellów (na razie lokalna, później z bazy)
-        public static List<Spell> GetAllSpells() {
-            return new List<Spell> {
-                new Spell {
-                    name = "Basic Attack",
-                    elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
-                    requiredLevel = 1,
-                    description = "Basic Attack",
-                    learnTimeSeconds = 10f,
-                    effects = new List<SpellEffect> {
-                        new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 10)
-                    }
-                },
-                new Spell {
-                    name = "Basic Attack 2",
-                    elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
-                    requiredLevel = 1,
-                    description = "Basic Attack",
-                    learnTimeSeconds = 10f,
-                    effects = new List<SpellEffect> {
-                        new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 10)
-                    }
-                },
-                new Spell {
-                    name = "Ognisty Atak",
-                    elementRequirements = new List<SpellElementRequirement> {
-                        new SpellElementRequirement(CreatureElement.Fire, null) // głównie ognisty
-                    },
-                    requiredLevel = 1,
-                    description = "Silny atak ogniem.",
-                    learnTimeSeconds = 5f,
-                    effects = new List<SpellEffect> {
-                        new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 15)
-                    }
-                },
-                new Spell {
-                    name = "Wodny Strumień",
-                    elementRequirements = new List<SpellElementRequirement> {
-                        new SpellElementRequirement(CreatureElement.Water, null) // głównie wodny
-                    },
-                    requiredLevel = 1,
-                    description = "Atak wodnym strumieniem.",
-                    learnTimeSeconds = 5f,
-                    effects = new List<SpellEffect> {
-                        new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 13)
-                    }
-                },
-                new Spell {
-                    name = "Leczenie",
-                    elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
-                    requiredLevel = 0,
-                    description = "Przywraca HP.",
-                    learnTimeSeconds = 0f,
-                    effects = new List<SpellEffect> {
-                        new SpellEffect(SpellTargetType.Self, SpellEffectType.Heal, 20)
-                    }
-                },
-                new Spell {
-                    name = "Szybki Cios",
-                    elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
-                    requiredLevel = 1,
-                    description = "Uniwersalny szybki atak.",
-                    learnTimeSeconds = 0f,
-                    effects = new List<SpellEffect> {
-                        new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 8)
-                    }
-                },
-                new Spell {
-                    name = "Lodowo-Wodny Wir",
-                    elementRequirements = new List<SpellElementRequirement> {
-                        new SpellElementRequirement(CreatureElement.Ice, CreatureElement.Water), // lód główny, woda secondary
-                        new SpellElementRequirement(CreatureElement.Water, CreatureElement.Ice)  // woda główny, lód secondary
-                    },
-                    requiredLevel = 3,
-                    description = "Potężny atak łączący moc lodu i wody.",
-                    learnTimeSeconds = 15f,
-                    effects = new List<SpellEffect> {
-                        new SpellEffect(SpellTargetType.AllEnemies, SpellEffectType.Damage, 18)
-                    }
-                },
-                new Spell {
-                    name = "Grupowe Leczenie i Wzmocnienie",
-                    elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
-                    requiredLevel = 4,
-                    description = "Leczy wszystkich sojuszników i zwiększa ich inicjatywę.",
-                    learnTimeSeconds = 20f,
-                    effects = new List<SpellEffect> {
-                        new SpellEffect(SpellTargetType.AllAllies, SpellEffectType.Heal, 15),
-                        new SpellEffect(SpellTargetType.AllAllies, SpellEffectType.BuffInitiative, 5)
-                    }
-                }
-            };
         }
     }
 } 

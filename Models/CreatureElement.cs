@@ -1,5 +1,6 @@
 namespace Models {
     public enum CreatureElement {
+        None,
         Fire,
         Water,
         Ice,
