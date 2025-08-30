@@ -219,6 +219,12 @@ namespace Systems {
                 UpdateGems(newAmount);
             }
         }
+        
+        // Metoda do dodawania stworka i wywołania eventu
+        public void NotifyCreatureAdded(Creature creature)
+        {
+            OnCreatureAdded?.Invoke(creature);
+        }
 
 
         public List<Spell> GetAllSpells()

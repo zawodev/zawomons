@@ -34,6 +34,16 @@ namespace Systems.API
         public int current_energy;
         public int damage;
         public int initiative;
+        public SpellDataResponse[] spells;
+    }
+
+    [System.Serializable]
+    public class SpellDataResponse
+    {
+        public int spell_id;
+        public string start_time;
+        public string end_time;
+        public bool is_learned;
     }
 
     // RESOURCES - Request models
@@ -59,6 +69,16 @@ namespace Systems.API
         public int current_energy;
         public int damage;
         public int initiative;
+        public SpellRequestData[] spells;
+    }
+
+    [System.Serializable]
+    public class SpellRequestData
+    {
+        public int spell_id;
+        public string start_time;
+        public string end_time;
+        public bool is_learned;
     }
 
     [System.Serializable]
@@ -75,5 +95,6 @@ namespace Systems.API
         public int current_energy;
         public int damage;
         public int initiative;
+        public SpellRequestData[] spells;
     }
 }

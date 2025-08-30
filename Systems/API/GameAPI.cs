@@ -150,7 +150,8 @@ namespace Systems.API {
                 max_energy = creature.maxEnergy,
                 current_energy = creature.currentEnergy,
                 damage = creature.damage,
-                initiative = creature.initiative
+                initiative = creature.initiative,
+                spells = APIDataConverter.ConvertCreatureSpellsToApiFormat(creature)
             };
             
             string jsonData = JsonUtility.ToJson(creatureData);
@@ -256,7 +257,8 @@ namespace Systems.API {
                 max_energy = creature.maxEnergy,
                 current_energy = creature.currentEnergy,
                 damage = creature.damage,
-                initiative = creature.initiative
+                initiative = creature.initiative,
+                spells = APIDataConverter.ConvertCreatureSpellsToApiFormat(creature)
             };
             
             string jsonData = JsonUtility.ToJson(updateData);

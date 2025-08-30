@@ -11,10 +11,12 @@ namespace Systems.Battle.UI
     public class TeamSelectionUI : MonoBehaviour
     {
         [Header("UI Components")]
+        public GameObject teamSelectionPanel;
         public Transform zawomonGridParent;
         public GameObject zawomonButtonPrefab;
         public TextMeshProUGUI infoText;
         public Button startBattleButton;
+        public Button backButton;
         
         [Header("Battle Settings")]
         public int maxTeamSize = 3;
@@ -34,6 +36,7 @@ namespace Systems.Battle.UI
         
         // Events
         public System.Action<List<Creature>, List<Creature>> OnTeamsSelected;
+        public System.Action OnBackPressed;
 
         void OnEnable()
         {
@@ -61,6 +64,9 @@ namespace Systems.Battle.UI
         {
             if (startBattleButton != null)
                 startBattleButton.onClick.AddListener(StartBattle);
+                
+            if (backButton != null)
+                backButton.onClick.AddListener(GoBack);
         }
         
         private void OnPlayerDataReadyHandler()
@@ -212,6 +218,13 @@ namespace Systems.Battle.UI
             if (UnityEngine.InputSystem.Keyboard.current == null) return;
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             
+            // Escape key to go back
+            if (keyboard.escapeKey.wasPressedThisFrame)
+            {
+                GoBack();
+                return;
+            }
+            
             // Red player (WASD, Q - select, E - ready)
             if (!redReady)
             {
@@ -321,6 +334,12 @@ namespace Systems.Battle.UI
             blueCursor = 0;
             UpdateInfoText();
             UpdateGridHighlights();
+        }
+        
+        public void GoBack()
+        {
+            teamSelectionPanel.SetActive(false);
+            OnBackPressed?.Invoke();
         }
     }
 }

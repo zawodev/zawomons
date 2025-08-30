@@ -38,7 +38,7 @@ namespace UI {
         private string currentSearchTerm = "";
         
         // Events
-        public System.Action<Creature> OnCreatureSelected;
+        public Action<Creature> OnCreatureSelected;
         
         // Sort options for dropdown
         private readonly string[] sortOptions = {
@@ -386,6 +386,7 @@ namespace UI {
         }
         
         private void OnCreatureAdded(Creature newCreature) {
+            LoadCreaturesData();
             RefreshCreaturesList();
         }
     }
