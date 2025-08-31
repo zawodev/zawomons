@@ -1,7 +1,10 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace UI {
+using UI.Collection;
+
+namespace UI
+{
     public class GlobalWheelPanel : MonoBehaviour
     {
         public Button buttonA;
@@ -13,6 +16,7 @@ namespace UI {
 
         [Header("Panel References")]
         public CreatureCollectionPanel creatureCollectionPanel;
+        public CreatureDetailPanel creatureDetailPanel;
         public FriendsPanel friendsPanel;
 
         private void OnEnable()
@@ -40,12 +44,15 @@ namespace UI {
         private void OnButtonAClicked()
         {
             Debug.Log("Button A clicked - Opening Friends Panel");
-            if (friendsPanel != null) {
+            if (friendsPanel != null)
+            {
                 if (!friendsPanel.gameObject.activeSelf)
                     friendsPanel.ShowPanel();
                 else
                     friendsPanel.HidePanel();
-            } else {
+            }
+            else
+            {
                 Debug.LogWarning("FriendsPanel reference is not set in GlobalWheelPanel!");
             }
         }
@@ -58,7 +65,14 @@ namespace UI {
                 if (!creatureCollectionPanel.gameObject.activeSelf)
                     creatureCollectionPanel.ShowPanel();
                 else
+                {
                     creatureCollectionPanel.HidePanel();
+                    // Also hide detail panel when closing collection panel
+                    if (creatureDetailPanel != null)
+                    {
+                        creatureDetailPanel.HidePanel();
+                    }
+                }
             }
             else
             {

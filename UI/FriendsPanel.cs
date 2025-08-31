@@ -4,12 +4,18 @@ using TMPro;
 using System.Collections.Generic;
 using Systems;
 using Systems.Battle;
+using Systems.API;
 
 namespace UI {
     public class FriendsPanel : MonoBehaviour {
         [Header("Panel References")]
         public GameObject panelRoot;
         public Button closeButton;
+        
+        [Header("View Toggle")]
+        public Button friendsViewButton;
+        public Button allPlayersViewButton;
+        public TMP_Text viewModeText;
         
         [Header("Friends List")]
         public Transform friendsContentParent;
@@ -22,9 +28,12 @@ namespace UI {
         [Header("Battle System Reference")]
         public BattleSystem battleSystem;
         
-        // Mock friends data - in the future this will come from API
-        private List<FriendData> mockFriends = new List<FriendData>();
+        // Data from API
+        private PlayerSummaryResponse[] allPlayersData;
+        private PlayerSummaryResponse[] friendsData;
+        private bool isShowingFriends = true;
         
+        // Legacy mock data class - keep for compatibility
         [System.Serializable]
         public class FriendData {
             public string username;
@@ -40,7 +49,7 @@ namespace UI {
         
         private void Awake() {
             InitializeUI();
-            InitializeMockData();
+            LoadDataFromAPI();
         }
         
         private void InitializeUI() {
@@ -49,10 +58,22 @@ namespace UI {
                 closeButton.onClick.AddListener(HidePanel);
             }
             
+            // View toggle buttons
+            if (friendsViewButton != null) {
+                friendsViewButton.onClick.AddListener(() => SwitchToView(true));
+            }
+            
+            if (allPlayersViewButton != null) {
+                allPlayersViewButton.onClick.AddListener(() => SwitchToView(false));
+            }
+            
             // Offline battle button
             if (offlineBattleButton != null) {
                 offlineBattleButton.onClick.AddListener(StartOfflineBattle);
             }
+            
+            // Initialize view state
+            UpdateViewToggleButtons();
             
             // Initialize as hidden
             if (panelRoot != null) {
@@ -60,24 +81,61 @@ namespace UI {
             }
         }
         
-        private void InitializeMockData() {
-            // Create mock friends data - in the future this will be loaded from API
-            mockFriends = new List<FriendData> {
-                new FriendData("PlayerOne", true),
-                new FriendData("DragonMaster", false),
-                new FriendData("WaterWizard", true),
-                new FriendData("FireKing", true),
-                new FriendData("StoneCrusher", false),
-                new FriendData("NatureLover", true),
-                new FriendData("MagicScholar", false),
-                new FriendData("DarkSorcerer", true)
-            };
+        private async void LoadDataFromAPI() {
+            // Load both friends and all players data once on start
+            try {
+                Debug.Log("Loading friends and players data from API...");
+                
+                // Load friends data
+                friendsData = await GameAPI.GetFriendsAsync();
+                if (friendsData == null) {
+                    Debug.LogWarning("Failed to load friends data from API");
+                    friendsData = new PlayerSummaryResponse[0];
+                }
+                
+                // Load all players data
+                allPlayersData = await GameAPI.GetAllPlayersAsync();
+                if (allPlayersData == null) {
+                    Debug.LogWarning("Failed to load players data from API");
+                    allPlayersData = new PlayerSummaryResponse[0];
+                }
+                
+                Debug.Log($"Loaded {friendsData.Length} friends and {allPlayersData.Length} players");
+            }
+            catch (System.Exception e) {
+                Debug.LogError($"Error loading data from API: {e.Message}");
+                // Fallback to empty arrays
+                friendsData = new PlayerSummaryResponse[0];
+                allPlayersData = new PlayerSummaryResponse[0];
+            }
+        }
+        
+        private void SwitchToView(bool showFriends) {
+            isShowingFriends = showFriends;
+            UpdateViewToggleButtons();
+            UpdateDisplayedList();
+        }
+        
+        private void UpdateViewToggleButtons() {
+            // Update button interactability
+            if (friendsViewButton != null) {
+                friendsViewButton.interactable = !isShowingFriends;
+            }
+            
+            if (allPlayersViewButton != null) {
+                allPlayersViewButton.interactable = isShowingFriends;
+            }
+            
+            // Update view mode text
+            if (viewModeText != null) {
+                viewModeText.text = isShowingFriends ? "Friends" : "All Players";
+            }
         }
         
         public void ShowPanel() {
             if (panelRoot != null) {
                 panelRoot.SetActive(true);
-                LoadFriendsList();
+                UpdateDisplayedList();
             }
         }
         
@@ -88,28 +146,83 @@ namespace UI {
         }
         
         private void LoadFriendsList() {
-            // In the future, this will call API to get friends list
-            // For now, use mock data
-            UpdateFriendsDisplay();
+            // Legacy method - now redirects to UpdateDisplayedList
+            UpdateDisplayedList();
         }
         
-        private void UpdateFriendsDisplay() {
-            // Clear existing friend items
+        private void UpdateDisplayedList() {
+            // Clear existing items
             if (friendsContentParent != null) {
                 foreach (Transform child in friendsContentParent) {
                     Destroy(child.gameObject);
                 }
             }
             
-            // Create friend items
+            // Get current data to display
+            PlayerSummaryResponse[] currentData = isShowingFriends ? friendsData : allPlayersData;
+            
+            if (currentData == null) {
+                Debug.LogWarning("No data to display - API data not loaded yet");
+                return;
+            }
+            
+            // Create items for current view
             if (friendItemPrefab != null && friendsContentParent != null) {
-                foreach (var friend in mockFriends) {
+                foreach (var playerData in currentData) {
                     GameObject friendItem = Instantiate(friendItemPrefab, friendsContentParent);
-                    SetupFriendItem(friendItem, friend);
+                    SetupPlayerItem(friendItem, playerData);
                 }
             }
         }
         
+        private void SetupPlayerItem(GameObject friendItem, PlayerSummaryResponse playerData) {
+            // Find UI components in the friend item prefab
+            TMP_Text usernameText = friendItem.transform.Find("UsernameText")?.GetComponent<TMP_Text>();
+            Image statusIndicator = friendItem.transform.Find("StatusIndicator")?.GetComponent<Image>();
+            Image avatarImage = friendItem.transform.Find("AvatarImage")?.GetComponent<Image>();
+            Button challengeButton = friendItem.transform.Find("ChallengeButton")?.GetComponent<Button>();
+            
+            // Additional UI components for player info
+            TMP_Text experienceText = friendItem.transform.Find("ExperienceText")?.GetComponent<TMP_Text>();
+            TMP_Text creatureCountText = friendItem.transform.Find("CreatureCountText")?.GetComponent<TMP_Text>();
+            
+            // Set player data
+            if (usernameText != null) {
+                usernameText.text = playerData.username;
+            }
+            
+            // Set online status indicator color
+            if (statusIndicator != null) {
+                statusIndicator.color = playerData.is_online ? Color.green : Color.gray;
+            }
+            
+            // Set mock avatar color (random color based on username)
+            if (avatarImage != null) {
+                avatarImage.color = GenerateColorFromString(playerData.username);
+            }
+            
+            // Set additional info
+            if (experienceText != null) {
+                experienceText.text = $"XP: {playerData.experience}";
+            }
+            
+            if (creatureCountText != null) {
+                creatureCountText.text = $"Creatures: {playerData.creature_count}";
+            }
+            
+            // Setup challenge button
+            if (challengeButton != null) {
+                TMP_Text buttonText = challengeButton.GetComponentInChildren<TMP_Text>();
+                if (buttonText != null) {
+                    buttonText.text = playerData.is_online ? "Challenge" : "Offline";
+                }
+                
+                challengeButton.interactable = playerData.is_online;
+                challengeButton.onClick.AddListener(() => ChallengePlayer(playerData));
+            }
+        }
+        
+        // Legacy method for compatibility
         private void SetupFriendItem(GameObject friendItem, FriendData friend) {
             // Find UI components in the friend item prefab
             TMP_Text usernameText = friendItem.transform.Find("UsernameText")?.GetComponent<TMP_Text>();
@@ -164,11 +277,19 @@ namespace UI {
             
             // Mock: Start online battle (without consequences)
             // In the future, this will send a challenge request through API
-            StartOnlineSparringMatch(friend);
+            StartOnlineSparringMatch(friend.username);
         }
         
-        private void StartOnlineSparringMatch(FriendData friend) {
-            Debug.Log($"Starting online sparring match against {friend.username}");
+        private void ChallengePlayer(PlayerSummaryResponse playerData) {
+            Debug.Log($"Challenging player: {playerData.username} to an online sparring match");
+            
+            // Mock: Start online battle (without consequences)
+            // In the future, this will send a challenge request through API
+            StartOnlineSparringMatch(playerData.username);
+        }
+        
+        private void StartOnlineSparringMatch(string playerUsername) {
+            Debug.Log($"Starting online sparring match against {playerUsername}");
             
             if (battleSystem != null) {
                 // Hide this panel
@@ -200,17 +321,12 @@ namespace UI {
             }
         }
         
-        // Future methods for API integration
-        private void LoadFriendsFromAPI() {
-            // TODO: Implement API call to get friends list
-            // var friends = await GameAPI.GetFriendsListAsync();
-            // UpdateFriendsDisplay(friends);
-        }
-        
-        private void SendChallengeRequest(string friendUsername) {
-            // TODO: Implement API call to send challenge request
-            // var success = await GameAPI.SendChallengeAsync(friendUsername);
+        // API integration methods - now implemented
+        private void SendChallengeRequest(string playerUsername) {
+            // TODO: Implement API call to send challenge request in the future
+            // var success = await GameAPI.SendChallengeAsync(playerUsername);
             // if (success) { /* Handle success */ }
+            Debug.Log($"Challenge request sent to {playerUsername} (mock implementation)");
         }
         
         private void OnDestroy() {
@@ -220,6 +336,12 @@ namespace UI {
             }
             if (offlineBattleButton != null) {
                 offlineBattleButton.onClick.RemoveAllListeners();
+            }
+            if (friendsViewButton != null) {
+                friendsViewButton.onClick.RemoveAllListeners();
+            }
+            if (allPlayersViewButton != null) {
+                allPlayersViewButton.onClick.RemoveAllListeners();
             }
         }
     }

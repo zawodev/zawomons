@@ -291,5 +291,99 @@ namespace Systems.API {
                 }
             }
         }
+
+        // SOCIAL API METHODS
+
+        /// <summary>
+        /// Pobiera listę wszystkich graczy z API
+        /// </summary>
+        public static async Task<PlayerSummaryResponse[]> GetAllPlayersAsync()
+        {
+            if (string.IsNullOrEmpty(authToken))
+            {
+                Debug.LogError("Brak tokena autoryzacji!");
+                return null;
+            }
+
+            string url = BASE_URL + "/players/";
+            
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
+            {
+                request.SetRequestHeader("Authorization", "Bearer " + authToken);
+                
+                await request.SendWebRequest();
+
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    string jsonResponse = request.downloadHandler.text;
+                    Debug.Log($"Pobrano listę graczy: {jsonResponse}");
+                    
+                    try
+                    {
+                        // Unity JsonUtility nie obsługuje bezpośrednio tablic, więc owijamy w wrapper
+                        string wrappedJson = "{\"items\":" + jsonResponse + "}";
+                        var wrapper = JsonUtility.FromJson<PlayerSummaryResponseWrapper>(wrappedJson);
+                        return wrapper.items;
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError($"Błąd parsowania listy graczy: {e.Message}");
+                        return null;
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"Błąd pobierania listy graczy: {request.error}, Code: {request.responseCode}");
+                    Debug.LogError($"Response: {request.downloadHandler.text}");
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Pobiera listę znajomych z API
+        /// </summary>
+        public static async Task<PlayerSummaryResponse[]> GetFriendsAsync()
+        {
+            if (string.IsNullOrEmpty(authToken))
+            {
+                Debug.LogError("Brak tokena autoryzacji!");
+                return null;
+            }
+
+            string url = BASE_URL + "/friends/";
+            
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
+            {
+                request.SetRequestHeader("Authorization", "Bearer " + authToken);
+                
+                await request.SendWebRequest();
+
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    string jsonResponse = request.downloadHandler.text;
+                    Debug.Log($"Pobrano listę znajomych: {jsonResponse}");
+                    
+                    try
+                    {
+                        // Unity JsonUtility nie obsługuje bezpośrednio tablic, więc owijamy w wrapper
+                        string wrappedJson = "{\"items\":" + jsonResponse + "}";
+                        var wrapper = JsonUtility.FromJson<PlayerSummaryResponseWrapper>(wrappedJson);
+                        return wrapper.items;
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError($"Błąd parsowania listy znajomych: {e.Message}");
+                        return null;
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"Błąd pobierania listy znajomych: {request.error}, Code: {request.responseCode}");
+                    Debug.LogError($"Response: {request.downloadHandler.text}");
+                    return null;
+                }
+            }
+        }
     }
 } 

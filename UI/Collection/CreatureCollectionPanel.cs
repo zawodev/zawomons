@@ -7,7 +7,7 @@ using Models;
 using Systems;
 using System;
 
-namespace UI {
+namespace UI.Collection {
     public class CreatureCollectionPanel : MonoBehaviour {
         [Header("Panel References")]
         public GameObject panelRoot;
@@ -146,6 +146,11 @@ namespace UI {
         public void HidePanel() {
             if (panelRoot != null) {
                 panelRoot.SetActive(false);
+            }
+            
+            // Always hide detail panel when collection panel is hidden
+            if (creatureDetailPanel != null) {
+                creatureDetailPanel.HidePanel();
             }
         }
         

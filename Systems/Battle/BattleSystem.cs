@@ -12,8 +12,10 @@ namespace Systems.Battle
         [Header("UI References")]
         public TeamSelectionUI teamSelectionUI;
         public BattleMoveSelectionUI moveSelectionUI;
+        public BattleResultsUI battleResultsUI;
         public GameObject teamSelectionPanel;
         public GameObject battlePanel;
+        public GameObject battleResultsPanel;
         
         private BattleState battleState;
         
@@ -37,18 +39,26 @@ namespace Systems.Battle
             {
                 moveSelectionUI.OnBothTeamsReady += ProcessTurn;
             }
+            
+            if (battleResultsUI != null)
+            {
+                battleResultsUI.OnRematchClicked += HandleRematch;
+                battleResultsUI.OnExitBattleClicked += HandleExitBattle;
+            }
         }
         
         void ShowTeamSelection()
         {
             if (teamSelectionPanel != null) teamSelectionPanel.SetActive(true);
             if (battlePanel != null) battlePanel.SetActive(false);
+            if (battleResultsPanel != null) battleResultsPanel.SetActive(false);
         }
         
         void ShowBattleUI()
         {
             if (teamSelectionPanel != null) teamSelectionPanel.SetActive(false);
             if (battlePanel != null) battlePanel.SetActive(true);
+            if (battleResultsPanel != null) battleResultsPanel.SetActive(false);
         }
         
         public void StartBattle(List<Creature> teamA, List<Creature> teamB)
@@ -258,11 +268,29 @@ namespace Systems.Battle
             
             OnBattleFinished?.Invoke(battleState.winner);
             
-            // You can add UI here to show battle results
-            // For now, we'll just log and return to team selection
+            // Disable interaction with move selection UI but keep it visible
+            if (moveSelectionUI != null)
+            {
+                moveSelectionUI.SetInteractable(false);
+            }
             
-            // Reset for next battle after a delay
-            Invoke(nameof(ReturnToTeamSelection), 3f);
+            // Show battle results panel
+            if (battleResultsPanel != null)
+            {
+                battleResultsPanel.SetActive(true);
+            }
+            
+            // Show battle results UI
+            if (battleResultsUI != null)
+            {
+                battleResultsUI.ShowResults(battleState);
+            }
+            else
+            {
+                Debug.LogWarning("BattleResultsUI is not assigned! Falling back to auto-return.");
+                // Fallback: return to team selection after delay
+                Invoke(nameof(ReturnToTeamSelection), 3f);
+            }
         }
         
         void ReturnToTeamSelection()
@@ -296,9 +324,70 @@ namespace Systems.Battle
             if (moveSelectionUI != null && moveSelectionUI.gameObject.activeInHierarchy)
             {
                 moveSelectionUI.ResetTurn();
+                moveSelectionUI.SetInteractable(true); // Re-enable interactions
+            }
+            
+            if (battleResultsPanel != null)
+            {
+                battleResultsPanel.SetActive(false);
             }
             
             ShowTeamSelection();
+        }
+        
+        // Event handlers for Battle Results UI
+        void HandleRematch()
+        {
+            Debug.Log("Rematch requested");
+            
+            // Hide results panel
+            if (battleResultsPanel != null)
+            {
+                battleResultsPanel.SetActive(false);
+            }
+            
+            // Re-enable move selection UI
+            if (moveSelectionUI != null)
+            {
+                moveSelectionUI.SetInteractable(true);
+            }
+            
+            // Reset battle state but keep teams
+            if (teamSelectionUI != null)
+            {
+                teamSelectionUI.ResetSelection();
+            }
+            
+            // Return to team selection for new battle
+            ShowTeamSelection();
+            battleState = null;
+        }
+        
+        void HandleExitBattle()
+        {
+            // Reset battle system
+            ResetBattleSystem();
+
+            Debug.Log("Exiting battle completely");
+            
+            // Hide all battle UI panels
+            if (battleResultsPanel != null)
+            {
+                battleResultsPanel.SetActive(false);
+            }
+            
+            if (teamSelectionPanel != null)
+            {
+                teamSelectionPanel.SetActive(false);
+            }
+            
+            if (battlePanel != null)
+            {
+                battlePanel.SetActive(false);
+            }
+            
+            // You might want to return to main menu or world map here
+            // For now, we'll just reset everything
         }
     }
 }

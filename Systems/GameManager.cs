@@ -242,7 +242,7 @@ namespace Systems {
                     elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
                     requiredLevel = 1,
                     description = "Basic Attack",
-                    learnTimeSeconds = 10f,
+                    learnTimeSeconds = 5f,
                     effects = new List<SpellEffect> {
                         new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 10)
                     }
@@ -253,13 +253,24 @@ namespace Systems {
                     elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
                     requiredLevel = 1,
                     description = "Basic Attack",
-                    learnTimeSeconds = 10f,
+                    learnTimeSeconds = 5f,
                     effects = new List<SpellEffect> {
                         new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 10)
                     }
                 },
                 new Spell {
                     id = 2,
+                    name = "Basic Attack 3",
+                    elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
+                    requiredLevel = 0,
+                    description = "Basic Attack",
+                    learnTimeSeconds = 5f,
+                    effects = new List<SpellEffect> {
+                        new SpellEffect(SpellTargetType.Enemy, SpellEffectType.Damage, 10)
+                    }
+                },
+                new Spell {
+                    id = 3,
                     name = "Ognisty Atak",
                     elementRequirements = new List<SpellElementRequirement> {
                         new SpellElementRequirement(CreatureElement.Fire, null) // głównie ognisty
@@ -272,7 +283,7 @@ namespace Systems {
                     }
                 },
                 new Spell {
-                    id = 3,
+                    id = 4,
                     name = "Wodny Strumień",
                     elementRequirements = new List<SpellElementRequirement> {
                         new SpellElementRequirement(CreatureElement.Water, null) // głównie wodny
@@ -285,10 +296,10 @@ namespace Systems {
                     }
                 },
                 new Spell {
-                    id = 4,
+                    id = 5,
                     name = "Leczenie",
                     elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
-                    requiredLevel = 0,
+                    requiredLevel = 5,
                     description = "Przywraca HP.",
                     learnTimeSeconds = 0f,
                     effects = new List<SpellEffect> {
@@ -296,7 +307,7 @@ namespace Systems {
                     }
                 },
                 new Spell {
-                    id = 5,
+                    id = 6,
                     name = "Szybki Cios",
                     elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
                     requiredLevel = 1,
@@ -307,7 +318,7 @@ namespace Systems {
                     }
                 },
                 new Spell {
-                    id = 6,
+                    id = 7,
                     name = "Lodowo-Wodny Wir",
                     elementRequirements = new List<SpellElementRequirement> {
                         new SpellElementRequirement(CreatureElement.Ice, CreatureElement.Water), // lód główny, woda secondary
@@ -321,7 +332,7 @@ namespace Systems {
                     }
                 },
                 new Spell {
-                    id = 7,
+                    id = 8,
                     name = "Grupowe Leczenie i Wzmocnienie",
                     elementRequirements = new List<SpellElementRequirement>(), // uniwersalny
                     requiredLevel = 4,

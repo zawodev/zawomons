@@ -259,5 +259,17 @@ namespace Systems.Battle.UI
             teamASelectedSpell = 0;
             teamBSelectedSpell = 0;
         }
+        
+        public void SetInteractable(bool interactable)
+        {
+            // Disable/enable next turn button
+            if (nextTurnButton != null)
+            {
+                nextTurnButton.interactable = interactable;
+            }
+            
+            // You can add more interactive elements here if needed
+            // For example: spell selection buttons, creature selection buttons, etc.
+        }
     }
 }

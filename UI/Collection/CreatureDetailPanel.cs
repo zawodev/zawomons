@@ -6,7 +6,7 @@ using Models;
 using Systems;
 using System.Linq;
 
-namespace UI {
+namespace UI.Collection {
     public class CreatureDetailPanel : MonoBehaviour {
         [Header("Panel References")]
         public GameObject panelRoot;
@@ -71,6 +71,7 @@ namespace UI {
         
         private void Awake() {
             InitializeUI();
+            LoadTabSettingsFromPlayerPrefs();
         }
         
         private void InitializeUI() {
@@ -117,8 +118,8 @@ namespace UI {
                 panelRoot.SetActive(true);
             }
             
-            // Switch to stats tab by default
-            SwitchToTab(TabType.Stats);
+            // Switch to last used tab instead of stats by default
+            SwitchToTab(currentTab);
             
             // Update all content
             UpdateAllTabs();
@@ -133,6 +134,7 @@ namespace UI {
         
         private void SwitchToTab(TabType tabType) {
             currentTab = tabType;
+            SaveTabSettingsToPlayerPrefs(); // Save selected tab to PlayerPrefs
             
             // Hide all tab contents
             if (statsTabContent != null) statsTabContent.SetActive(false);
@@ -410,6 +412,17 @@ namespace UI {
             if (closeButton != null) {
                 closeButton.onClick.RemoveAllListeners();
             }
+        }
+        
+        // PlayerPrefs methods for tab settings
+        private void SaveTabSettingsToPlayerPrefs() {
+            PlayerPrefs.SetInt("CreatureDetail_CurrentTab", (int)currentTab);
+            PlayerPrefs.Save();
+        }
+        
+        private void LoadTabSettingsFromPlayerPrefs() {
+            int savedTab = PlayerPrefs.GetInt("CreatureDetail_CurrentTab", (int)TabType.Stats);
+            currentTab = (TabType)savedTab;
         }
     }
 }

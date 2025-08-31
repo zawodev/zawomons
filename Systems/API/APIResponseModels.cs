@@ -97,4 +97,20 @@ namespace Systems.API
         public int initiative;
         public SpellRequestData[] spells;
     }
+
+    // SOCIAL DATA - Response models
+    [System.Serializable]
+    public class PlayerSummaryResponse
+    {
+        public string username;
+        public int experience;
+        public int creature_count;
+        public bool is_online;
+    }
+
+    [System.Serializable]
+    public class PlayerSummaryResponseWrapper
+    {
+        public PlayerSummaryResponse[] items;
+    }
 }
