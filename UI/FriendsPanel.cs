@@ -16,6 +16,7 @@ namespace UI {
         public Button friendsViewButton;
         public Button allPlayersViewButton;
         public TMP_Text viewModeText;
+        public Button refreshButton;
         
         [Header("Friends List")]
         public Transform friendsContentParent;
@@ -32,6 +33,11 @@ namespace UI {
         private PlayerSummaryResponse[] allPlayersData;
         private PlayerSummaryResponse[] friendsData;
         private bool isShowingFriends = true;
+        
+        // Refresh cooldown
+        private float lastRefreshTime = 0f;
+        private const float REFRESH_COOLDOWN = 10f; // 10 seconds cooldown
+        private bool isRefreshing = false;
         
         // Legacy mock data class - keep for compatibility
         [System.Serializable]
@@ -52,6 +58,13 @@ namespace UI {
             LoadDataFromAPI();
         }
         
+        private void Update() {
+            // Update refresh button state continuously during cooldown
+            if (refreshButton != null && lastRefreshTime > 0) {
+                UpdateRefreshButton();
+            }
+        }
+        
         private void InitializeUI() {
             // Close button
             if (closeButton != null) {
@@ -65,6 +78,11 @@ namespace UI {
             
             if (allPlayersViewButton != null) {
                 allPlayersViewButton.onClick.AddListener(() => SwitchToView(false));
+            }
+            
+            // Refresh button
+            if (refreshButton != null) {
+                refreshButton.onClick.AddListener(RefreshData);
             }
             
             // Offline battle button
@@ -83,6 +101,9 @@ namespace UI {
         
         private async void LoadDataFromAPI() {
             // Load both friends and all players data once on start
+            isRefreshing = true;
+            UpdateRefreshButton();
+            
             try {
                 Debug.Log("Loading friends and players data from API...");
                 
@@ -101,12 +122,63 @@ namespace UI {
                 }
                 
                 Debug.Log($"Loaded {friendsData.Length} friends and {allPlayersData.Length} players");
+                
+                // Update display if panel is currently visible
+                if (panelRoot != null && panelRoot.activeSelf) {
+                    UpdateDisplayedList();
+                }
             }
             catch (System.Exception e) {
                 Debug.LogError($"Error loading data from API: {e.Message}");
                 // Fallback to empty arrays
                 friendsData = new PlayerSummaryResponse[0];
                 allPlayersData = new PlayerSummaryResponse[0];
+            }
+            finally {
+                isRefreshing = false;
+                UpdateRefreshButton();
+            }
+        }
+        
+        private void RefreshData() {
+            // Check cooldown
+            float timeSinceLastRefresh = Time.time - lastRefreshTime;
+            if (timeSinceLastRefresh < REFRESH_COOLDOWN) {
+                float remainingTime = REFRESH_COOLDOWN - timeSinceLastRefresh;
+                Debug.Log($"Refresh on cooldown. Try again in {remainingTime:F1} seconds.");
+                return;
+            }
+            
+            if (isRefreshing) {
+                Debug.Log("Already refreshing data...");
+                return;
+            }
+            
+            Debug.Log("Refreshing data from API...");
+            lastRefreshTime = Time.time;
+            LoadDataFromAPI();
+            UpdateRefreshButton();
+        }
+        
+        private void UpdateRefreshButton() {
+            if (refreshButton == null) return;
+            
+            float timeSinceLastRefresh = Time.time - lastRefreshTime;
+            bool canRefresh = timeSinceLastRefresh >= REFRESH_COOLDOWN && !isRefreshing;
+            
+            refreshButton.interactable = canRefresh;
+            
+            // Update button text to show cooldown
+            TMP_Text buttonText = refreshButton.GetComponentInChildren<TMP_Text>();
+            if (buttonText != null) {
+                if (!canRefresh && !isRefreshing) {
+                    float remainingTime = REFRESH_COOLDOWN - timeSinceLastRefresh;
+                    buttonText.text = $"Refresh ({remainingTime:F0}s)";
+                } else if (isRefreshing) {
+                    buttonText.text = "Refreshing...";
+                } else {
+                    buttonText.text = "Refresh";
+                }
             }
         }
         
@@ -125,6 +197,9 @@ namespace UI {
             if (allPlayersViewButton != null) {
                 allPlayersViewButton.interactable = isShowingFriends;
             }
+            
+            // Update refresh button
+            UpdateRefreshButton();
             
             // Update view mode text
             if (viewModeText != null) {
@@ -342,6 +417,9 @@ namespace UI {
             }
             if (allPlayersViewButton != null) {
                 allPlayersViewButton.onClick.RemoveAllListeners();
+            }
+            if (refreshButton != null) {
+                refreshButton.onClick.RemoveAllListeners();
             }
         }
     }
