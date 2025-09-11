@@ -21,7 +21,14 @@ namespace Systems.Battle
         
         // Events
         public System.Action<string> OnBattleFinished;
-        
+
+        void Awake()
+        {
+            if (teamSelectionPanel != null) teamSelectionPanel.SetActive(false);
+            if (battlePanel != null) battlePanel.SetActive(false);
+            if (battleResultsPanel != null) battleResultsPanel.SetActive(false);
+        }
+
         void Start()
         {
             Initialize();

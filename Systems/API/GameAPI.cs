@@ -345,6 +345,7 @@ namespace Systems.API {
         /// </summary>
         public static async Task<PlayerSummaryResponse[]> GetFriendsAsync()
         {
+            Debug.Log("authToken: " + authToken);
             if (string.IsNullOrEmpty(authToken))
             {
                 Debug.LogError("Brak tokena autoryzacji!");

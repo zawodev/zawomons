@@ -37,7 +37,7 @@ namespace Systems.Battle.UI
         // Events
         public System.Action<List<Creature>, List<Creature>> OnTeamsSelected;
         public System.Action OnBackPressed;
-
+        
         void OnEnable()
         {
             if (GameManager.Instance != null)

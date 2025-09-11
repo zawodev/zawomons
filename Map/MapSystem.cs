@@ -23,6 +23,8 @@ public class MapSystem : MonoBehaviour
     
     [Header("Visual Settings")]
     public Transform mapParent;
+    public Transform buildingsParent;
+    public Transform creaturesParent;
     
     // Private data
     private Dictionary<Vector2Int, HexTile> hexTiles = new Dictionary<Vector2Int, HexTile>();
@@ -35,14 +37,13 @@ public class MapSystem : MonoBehaviour
     private List<HexTile> visibleTiles = new List<HexTile>();
     private List<HexTile> allTiles = new List<HexTile>();
     
+    // Selection
+    private HexTile currentSelectedTile = null;
+    
     // Events
     public System.Action<MapSystem> OnMapGenerated;
     public System.Action<HexTile> OnTileClicked;
-    public System.Action<HexTile> OnTileHoverEnter;
-    public System.Action<HexTile> OnTileHoverExit;
-    
-    // Selection system
-    private HexTile selectedTile = null;
+    public System.Action<HexTile> OnTileHovered;
     
     // API Mock Data
     private List<BuildingData> mockBuildings = new List<BuildingData>();
@@ -54,7 +55,24 @@ public class MapSystem : MonoBehaviour
         {
             GameObject mapContainer = new GameObject("Map Container");
             mapContainer.transform.SetParent(transform);
+            mapContainer.transform.position = new Vector3(0, 0, 100); // Z = 100 for proper sorting
             mapParent = mapContainer.transform;
+        }
+        
+        if (buildingsParent == null)
+        {
+            GameObject buildingsContainer = new GameObject("Buildings Container");
+            buildingsContainer.transform.SetParent(transform);
+            buildingsContainer.transform.position = new Vector3(0, 0, 100); // Z = 100 for proper sorting
+            buildingsParent = buildingsContainer.transform;
+        }
+        
+        if (creaturesParent == null)
+        {
+            GameObject creaturesContainer = new GameObject("Creatures Container");
+            creaturesContainer.transform.SetParent(transform);
+            creaturesContainer.transform.position = new Vector3(0, 0, 100); // Z = 100 for proper sorting
+            creaturesParent = creaturesContainer.transform;
         }
         
         mainCamera = Camera.main;
@@ -250,10 +268,22 @@ public class MapSystem : MonoBehaviour
             GameObject tileObject = Instantiate(hexTilePrefab, tileData.worldPosition, Quaternion.identity, mapParent);
             tileObject.name = $"HexTile_{gridPos.x}_{gridPos.y}";
             
+            // Ensure proper Z position for sorting
+            Vector3 pos = tileObject.transform.position;
+            tileObject.transform.position = new Vector3(pos.x, pos.y, 100);
+            
             HexTile hexTile = tileObject.GetComponent<HexTile>();
             if (hexTile == null)
             {
                 hexTile = tileObject.AddComponent<HexTile>();
+            }
+            
+            // Set sorting for hex tiles
+            Renderer tileRenderer = tileObject.GetComponent<Renderer>();
+            if (tileRenderer != null)
+            {
+                tileRenderer.sortingLayerName = "Default";
+                tileRenderer.sortingOrder = -3; // Hex tiles should be behind buildings/creatures
             }
             
             hexTile.hexSize = hexSize;
@@ -292,7 +322,10 @@ public class MapSystem : MonoBehaviour
         
         foreach (var tile in allTiles)
         {
-            float distance = Vector3.Distance(cameraPos, tile.transform.position);
+            // Use 2D distance for culling (ignore Z difference)
+            Vector2 cameraPos2D = new Vector2(cameraPos.x, cameraPos.y);
+            Vector2 tilePos2D = new Vector2(tile.transform.position.x, tile.transform.position.y);
+            float distance = Vector2.Distance(cameraPos2D, tilePos2D);
             bool shouldBeVisible = distance <= cullingDistance;
             
             if (tile.gameObject.activeSelf != shouldBeVisible)
@@ -309,49 +342,24 @@ public class MapSystem : MonoBehaviour
     
     private void HandleTileClicked(HexTile tile)
     {
-        // System selekcji - tylko jeden kafelek może być wybrany na raz
-        if (selectedTile != null && selectedTile != tile)
+        // Odznacz poprzedni zaznaczony hex
+        if (currentSelectedTile != null && currentSelectedTile != tile)
         {
-            selectedTile.SetState(HexTile.TileState.Base);
+            currentSelectedTile.SetSelected(false);
         }
         
-        selectedTile = tile;
-        tile.SetState(HexTile.TileState.Selected);
-        
-        // Debug info o kliknięciem kafelku
-        Debug.Log($"Tile clicked: Grid Position {tile.GetGridPosition()}, World Position {tile.transform.position}");
-        if (tile.tileData?.biomeData != null)
+        // Zaznacz nowy hex
+        if (tile != currentSelectedTile)
         {
-            Debug.Log($"Biome: {tile.tileData.biomeData.biomeName}");
+            tile.SetSelected(true);
+            currentSelectedTile = tile;
+            Debug.Log($"Kliknięto w hex: {tile.tileData.gridPosition}");
         }
-        
-        // Sprawdź czy na kafelku są budynki lub creatures
-        LogTileOccupants(tile);
-        
-        OnTileClicked?.Invoke(tile);
-    }
-    
-    private void LogTileOccupants(HexTile tile)
-    {
-        Vector2Int gridPos = tile.GetGridPosition();
-        
-        // Sprawdź budynki
-        var building = mockBuildings.Find(b => b.position == gridPos);
-        if (building != null)
+        else
         {
-            Debug.Log($"Building found: ID {building.id}, Type: {building.buildingType}, Owner: Player {building.ownerPlayerId}");
-        }
-        
-        // Sprawdź creatures
-        var creature = mockCreatures.Find(c => c.position == gridPos);
-        if (creature != null)
-        {
-            Debug.Log($"Creature found: ID {creature.creatureId}, Name: {creature.creatureName}, Player owned: {creature.isOwnedByPlayer}");
-        }
-        
-        if (building == null && creature == null)
-        {
-            Debug.Log("Tile is empty - no buildings or creatures");
+            // Jeśli kliknięto w ten sam hex, odznacz go
+            tile.SetSelected(false);
+            currentSelectedTile = null;
         }
         
         OnTileClicked?.Invoke(tile);
@@ -359,7 +367,7 @@ public class MapSystem : MonoBehaviour
     
     private void HandleTileHovered(HexTile tile)
     {
-        OnTileHoverEnter?.Invoke(tile);
+        OnTileHovered?.Invoke(tile);
     }
     
     private void ClearExistingMap()
@@ -369,6 +377,22 @@ public class MapSystem : MonoBehaviour
             for (int i = mapParent.childCount - 1; i >= 0; i--)
             {
                 DestroyImmediate(mapParent.GetChild(i).gameObject);
+            }
+        }
+        
+        if (buildingsParent != null)
+        {
+            for (int i = buildingsParent.childCount - 1; i >= 0; i--)
+            {
+                DestroyImmediate(buildingsParent.GetChild(i).gameObject);
+            }
+        }
+        
+        if (creaturesParent != null)
+        {
+            for (int i = creaturesParent.childCount - 1; i >= 0; i--)
+            {
+                DestroyImmediate(creaturesParent.GetChild(i).gameObject);
             }
         }
         
@@ -452,9 +476,17 @@ public class MapSystem : MonoBehaviour
                 // Create a simple building representation
                 GameObject buildingObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 buildingObj.name = $"Building_{building.id}";
-                buildingObj.transform.position = tile.transform.position + Vector3.up * 0.25f; // Slightly above tile
+                buildingObj.transform.SetParent(buildingsParent);
                 buildingObj.transform.localScale = Vector3.one * 0.5f;
-                buildingObj.GetComponent<Renderer>().material.color = Color.gray;
+                
+                // Position on the tile with correct Z for sorting
+                Vector3 tilePos = tile.transform.position;
+                buildingObj.transform.position = new Vector3(tilePos.x, tilePos.y, 100);
+                
+                Renderer buildingRenderer = buildingObj.GetComponent<Renderer>();
+                buildingRenderer.material.color = Color.gray;
+                buildingRenderer.sortingLayerName = "Default";
+                buildingRenderer.sortingOrder = -2;
                 
                 // WAŻNE: Usuwamy Collider żeby nie blokował raycastów do kafelków
                 Collider buildingCollider = buildingObj.GetComponent<Collider>();
@@ -462,9 +494,6 @@ public class MapSystem : MonoBehaviour
                 {
                     DestroyImmediate(buildingCollider);
                 }
-                
-                // Ustaw jako child kafelka
-                buildingObj.transform.SetParent(tile.transform);
                 
                 tile.SetOccupyingObject(buildingObj, "Building");
             }
@@ -478,12 +507,19 @@ public class MapSystem : MonoBehaviour
                 // Create a simple creature representation
                 GameObject creatureObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 creatureObj.name = $"Creature_{creature.creatureId}";
-                creatureObj.transform.position = tile.transform.position + Vector3.up * 0.15f; // Slightly above tile
+                creatureObj.transform.SetParent(creaturesParent);
                 creatureObj.transform.localScale = Vector3.one * 0.3f;
+                
+                // Position on the tile with correct Z for sorting
+                Vector3 tilePos = tile.transform.position;
+                creatureObj.transform.position = new Vector3(tilePos.x, tilePos.y, 100);
                 
                 // Different color based on ownership
                 Color creatureColor = creature.isOwnedByPlayer ? Color.blue : Color.red;
-                creatureObj.GetComponent<Renderer>().material.color = creatureColor;
+                Renderer creatureRenderer = creatureObj.GetComponent<Renderer>();
+                creatureRenderer.material.color = creatureColor;
+                creatureRenderer.sortingLayerName = "Default";
+                creatureRenderer.sortingOrder = -1;
                 
                 // WAŻNE: Usuwamy Collider żeby nie blokował raycastów do kafelków
                 Collider creatureCollider = creatureObj.GetComponent<Collider>();
@@ -492,15 +528,10 @@ public class MapSystem : MonoBehaviour
                     DestroyImmediate(creatureCollider);
                 }
                 
-                // Ustaw jako child kafelka
-                creatureObj.transform.SetParent(tile.transform);
-                
                 tile.SetOccupyingObject(creatureObj, "Creature");
             }
         }
-    }
-    
-    // Public API
+    }    // Public API
     public HexTile GetTile(Vector2Int gridPosition)
     {
         hexTiles.TryGetValue(gridPosition, out HexTile tile);

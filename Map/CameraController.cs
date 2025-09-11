@@ -6,7 +6,7 @@ public class CameraController : MonoBehaviour
     [Header("Movement Settings")]
     public float panSpeed = 2f;
     public float panSmoothTime = 0.3f;
-    public bool invertPan = false;
+    public bool invertPan = true;
     
     [Header("Zoom Settings")]
     public float zoomSpeed = 2f;
@@ -34,10 +34,8 @@ public class CameraController : MonoBehaviour
     private float zoomVelocity;
     private bool isPanning = false;
     private bool isDragging = false;
-    private float dragThreshold = 10f; // Pixel distance to consider it a drag (zwiększono z 5)
+    private float dragThreshold = 5f; // Minimum distance to consider it a drag
     private Vector3 mouseDownPosition;
-    private Vector3 mouseDownWorldPosition;
-    private MapSystem mapSystem;
     
     // Events
     public System.Action<Vector3> OnCameraMoved;
@@ -56,9 +54,6 @@ public class CameraController : MonoBehaviour
     {
         targetPosition = transform.position;
         targetZoom = cam.orthographicSize;
-        
-        // Znajdź MapSystem w scenie
-        mapSystem = FindFirstObjectByType<MapSystem>();
     }
     
     private void Update()
@@ -70,11 +65,18 @@ public class CameraController : MonoBehaviour
     
     private void HandleInput()
     {
+        // Don't handle input if pointer is over UI
+        if (UnityEngine.EventSystems.EventSystem.current != null && 
+            UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
+        
         // Handle zoom
         float scrollWheel = Input.GetAxis("Mouse ScrollWheel");
         if (scrollWheel != 0)
         {
-            Zoom(-scrollWheel * zoomSpeed);
+            ZoomTowardsMouse(-scrollWheel * zoomSpeed);
         }
         
         // Handle panning
@@ -85,8 +87,7 @@ public class CameraController : MonoBehaviour
             if (Input.GetKeyDown(panKey) || Input.GetKeyDown(KeyCode.Mouse2))
             {
                 mouseDownPosition = Input.mousePosition;
-                mouseDownWorldPosition = cam.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, cam.nearClipPlane));
-                lastMousePosition = mouseDownWorldPosition;
+                lastMousePosition = Input.mousePosition; // Zmień na pozycję myszki w pikselach
                 isPanning = true;
                 isDragging = false;
             }
@@ -105,32 +106,26 @@ public class CameraController : MonoBehaviour
                 
                 if (isDragging)
                 {
-                    // Smooth drag - kursor zostaje na tym samym miejscu w świecie gry
-                    Vector3 currentMouseWorldPos = cam.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, cam.nearClipPlane));
-                    Vector3 worldDelta = mouseDownWorldPosition - currentMouseWorldPos;
+                    // Oblicz różnicę w pozycji myszki
+                    Vector3 mouseDelta = Input.mousePosition - lastMousePosition;
+                    lastMousePosition = Input.mousePosition;
                     
-                    // Dla 2D top-down używamy tylko X i Y
-                    Pan(new Vector3(worldDelta.x, worldDelta.y, 0));
+                    // Przelicz na jednostki świata (dostosuj współczynnik do zoom)
+                    float worldUnitsPerPixel = cam.orthographicSize * 2f / cam.pixelHeight;
+                    Vector3 worldDelta = new Vector3(mouseDelta.x, mouseDelta.y, 0) * worldUnitsPerPixel;
                     
-                    // Zaktualizuj pozycję referencyjną żeby ruch był płynny
-                    mouseDownWorldPosition = currentMouseWorldPos + worldDelta;
+                    if (invertPan)
+                    {
+                        worldDelta = -worldDelta;
+                    }
+                    
+                    // For 2D top-down, only use X and Y
+                    Pan(worldDelta);
                 }
             }
         }
         else if (isPanning)
         {
-            // Po puszczeniu LPM sprawdź czy to był click czy drag
-            if (!isDragging)
-            {
-                // To był click, nie drag - sprawdź czy kliknęliśmy kafelek
-                HexTile clickedTile = GetTileUnderMouse();
-                if (clickedTile != null && mapSystem != null)
-                {
-                    // Wywołaj kliknięcie kafelka bezpośrednio
-                    clickedTile.OnTileClicked?.Invoke(clickedTile);
-                }
-            }
-            
             isPanning = false;
             isDragging = false;
         }
@@ -151,6 +146,56 @@ public class CameraController : MonoBehaviour
     private void Zoom(float zoomAmount)
     {
         targetZoom = Mathf.Clamp(targetZoom + zoomAmount, minZoom, maxZoom);
+        OnCameraZoomed?.Invoke(targetZoom);
+    }
+    
+    private void ZoomTowardsMouse(float zoomAmount)
+    {
+        // Get mouse position in world coordinates before zoom
+        Vector3 mouseWorldPosBefore = GetMouseWorldPosition();
+        
+        // Calculate new zoom level
+        float newZoom = Mathf.Clamp(targetZoom + zoomAmount, minZoom, maxZoom);
+        
+        // Only proceed if zoom actually changed
+        if (Mathf.Abs(newZoom - targetZoom) < 0.001f)
+            return;
+            
+        float zoomRatio = newZoom / targetZoom;
+        targetZoom = newZoom;
+        
+        // Get mouse position in world coordinates after zoom change
+        // We need to calculate this manually since the camera hasn't moved yet
+        Vector3 mouseScreenPos = Input.mousePosition;
+        mouseScreenPos.z = Mathf.Abs(cam.transform.position.z);
+        
+        // Calculate what the mouse world position would be after zoom
+        float newCameraHeight = newZoom;
+        float newCameraWidth = newCameraHeight * cam.aspect;
+        
+        // Convert screen position to world position with new zoom
+        Vector3 normalizedScreenPos = new Vector3(
+            (mouseScreenPos.x / cam.pixelWidth) - 0.5f,
+            (mouseScreenPos.y / cam.pixelHeight) - 0.5f,
+            0
+        );
+        
+        Vector3 mouseWorldPosAfter = targetPosition + new Vector3(
+            normalizedScreenPos.x * newCameraWidth * 2f,
+            normalizedScreenPos.y * newCameraHeight * 2f,
+            0
+        );
+        
+        // Calculate the offset and adjust camera position
+        Vector3 offset = mouseWorldPosBefore - mouseWorldPosAfter;
+        targetPosition += new Vector3(offset.x, offset.y, 0); // Keep Z unchanged
+        
+        // Clamp to boundaries if enabled
+        if (useBoundaries)
+        {
+            targetPosition = ClampToBoundaries(targetPosition);
+        }
+        
         OnCameraZoomed?.Invoke(targetZoom);
     }
     
@@ -182,8 +227,12 @@ public class CameraController : MonoBehaviour
         float minZ = mapMinBounds.y + cameraHeight + boundaryPadding;
         float maxZ = mapMaxBounds.y - cameraHeight - boundaryPadding;
         
+        // Preserve the original Z position
+        float originalZ = position.z;
+        
         position.x = Mathf.Clamp(position.x, minX, maxX);
         position.y = Mathf.Clamp(position.y, minZ, maxZ); // Use Y for 2D top-down
+        position.z = originalZ; // Keep Z unchanged
         
         return position;
     }
@@ -202,7 +251,7 @@ public class CameraController : MonoBehaviour
     
     public void FocusOnPosition(Vector3 worldPosition, float zoomLevel = -1)
     {
-        targetPosition = new Vector3(worldPosition.x, worldPosition.y, transform.position.z); // Keep camera Z position
+        targetPosition = new Vector3(worldPosition.x, worldPosition.y, targetPosition.z); // Keep camera Z position
         
         if (zoomLevel > 0)
         {
@@ -238,6 +287,25 @@ public class CameraController : MonoBehaviour
     
     public HexTile GetTileUnderMouse()
     {
+        Debug.Log("GetTileUnderMouse called");
+        
+        // Don't detect tiles if pointer is over UI
+        if (UnityEngine.EventSystems.EventSystem.current == null)
+        {
+            Debug.Log("EventSystem.current is null");
+        }
+        else
+        {
+            bool isOverUI = UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+            Debug.Log("IsPointerOverGameObject: " + isOverUI);
+            
+            if (isOverUI)
+            {
+                Debug.Log("Pointer is over UI, not detecting tiles.");
+                return null;
+            }
+        }
+        
         if (isDragging) return null; // Don't detect tiles while dragging
         
         Ray ray = cam.ScreenPointToRay(Input.mousePosition);

@@ -89,6 +89,10 @@ public class HexTile : MonoBehaviour
     // State
     private bool isInitialized = false;
     
+    // Mouse interaction
+    private Vector3 mouseDownPosition;
+    private float clickThreshold = 5f; // Minimum distance to consider it a drag
+    
     private void Awake()
     {
         InitializeComponents();
@@ -142,15 +146,16 @@ public class HexTile : MonoBehaviour
         meshRenderer = GetComponent<MeshRenderer>();
         meshCollider = GetComponent<MeshCollider>();
         
+        // Ensure map is behind UI
+        meshRenderer.sortingOrder = -1;
+        
         if (meshRenderer.sharedMaterial != null)
         {
             originalMaterial = meshRenderer.sharedMaterial;
         }
         
         isInitialized = true;
-    }
-    
-    public void Initialize(HexTileData data)
+    }    public void Initialize(HexTileData data)
     {
         tileData = data;
         InitializeComponents();
@@ -179,13 +184,18 @@ public class HexTile : MonoBehaviour
         {
             if (Application.isPlaying)
             {
-                meshRenderer.material = tileData.biomeData.tileMaterial;
+                meshRenderer.material = new Material(tileData.biomeData.tileMaterial);
             }
             else
             {
                 meshRenderer.sharedMaterial = tileData.biomeData.tileMaterial;
             }
             originalMaterial = tileData.biomeData.tileMaterial;
+            
+            // Re-apply biome color after material change
+            MaterialPropertyBlock propertyBlock = new MaterialPropertyBlock();
+            propertyBlock.SetColor("_Color", tileData.biomeData.biomeColor);
+            meshRenderer.SetPropertyBlock(propertyBlock);
         }
         
         // Store base material reference
@@ -399,9 +409,9 @@ public class HexTile : MonoBehaviour
                 
                 // Update outline color
                 MeshRenderer outlineRenderer = outlineObject.GetComponent<MeshRenderer>();
-                if (outlineRenderer != null && outlineMaterial != null)
+                if (outlineRenderer != null)
                 {
-                    outlineMaterial.color = color;
+                    outlineRenderer.material.color = color;
                 }
             }
         }
@@ -443,8 +453,12 @@ public class HexTile : MonoBehaviour
             outlineMaterial.color = Color.white;
         }
         
-        outlineMeshRenderer.material = outlineMaterial;
+        // Create instance of material for this hex to avoid shared material issues
+        outlineMeshRenderer.material = new Material(outlineMaterial);
         
+        // Ensure outline is behind UI
+        outlineMeshRenderer.sortingOrder = -1;
+
         UpdateOutlineGeometry(baseOutlineThickness, baseOutlinePosition);
     }
     
@@ -452,10 +466,18 @@ public class HexTile : MonoBehaviour
     {
         // Find and remove any orphaned outline objects
         Transform[] children = GetComponentsInChildren<Transform>();
+        bool outlineExists = false;
         for (int i = children.Length - 1; i >= 0; i--)
         {
             if (children[i] != transform && children[i].name.Contains("Hex Outline"))
             {
+                // Check if this is our current outline object
+                if (outlineObject != null && children[i].gameObject == outlineObject)
+                {
+                    outlineExists = true;
+                    continue; // Don't destroy our current outline
+                }
+                
                 if (Application.isPlaying)
                     Destroy(children[i].gameObject);
                 else
@@ -463,7 +485,11 @@ public class HexTile : MonoBehaviour
             }
         }
         
-        outlineObject = null;
+        // Only set to null if no valid outline exists
+        if (!outlineExists)
+        {
+            outlineObject = null;
+        }
     }
     
     private void UpdateOutlineGeometry(float thickness, OutlinePosition position)
@@ -569,23 +595,48 @@ public class HexTile : MonoBehaviour
         }
     }
     
-    // Mouse interaction - wyłączone żeby nie kolidowało z CameraController
-    /*
+    // Mouse interaction
     private void OnMouseDown()
     {
-        OnTileClicked?.Invoke(this);
+        mouseDownPosition = Input.mousePosition;
+    }
+    
+    private void OnMouseUp()
+    {
+        // Sprawdź czy to było kliknięcie (mała odległość ruchu myszki)
+        float dragDistance = Vector3.Distance(Input.mousePosition, mouseDownPosition);
+        if (dragDistance < clickThreshold)
+        {
+            // Sprawdź czy pointer nie jest nad UI
+            if (UnityEngine.EventSystems.EventSystem.current != null && 
+                UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+            {
+                return;
+            }
+            
+            OnTileClicked?.Invoke(this);
+        }
     }
     
     private void OnMouseEnter()
     {
+        // Jeśli hex jest selected, nie zmieniaj na hover
+        if (tileData != null && tileData.isSelected)
+        {
+            return;
+        }
         SetHover(true);
     }
     
     private void OnMouseExit()
     {
+        // Jeśli hex jest selected, nie zmieniaj z hover
+        if (tileData != null && tileData.isSelected)
+        {
+            return;
+        }
         SetHover(false);
     }
-    */
     
     public Vector2Int GetGridPosition()
     {

@@ -28,13 +28,17 @@ public class ResourceTester : MonoBehaviour
     public Button addGoldButton;
     public Button addCreatureButton;
     public TMP_Text statusText;
-    
+
     [Header("Settings")]
+    public bool testActive = true;
     public int goldAmountToAdd = 5;
     public string token = "";
 
     void Awake()
     {
+        if (!testActive)
+            return;
+            
         if (!string.IsNullOrEmpty(token) && GameManager.Instance != null)
             GameManager.Instance.SetAuthToken(token);
     }

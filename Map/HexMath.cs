@@ -28,35 +28,38 @@ public static class HexMath
         if (pointyTop)
         {
             // For pointy-top hexes: every other row offset by half hex width
-            x = hexSize * Mathf.Sqrt(3f) * (hexCoord.x + (hexCoord.y % 2) * 0.5f);
+            // Use proper modulo for negative numbers
+            float offsetX = ((hexCoord.y % 2) + 2) % 2; // Ensures positive result for negative y
+            x = hexSize * Mathf.Sqrt(3f) * (hexCoord.x + offsetX * 0.5f);
             y = hexSize * 1.5f * hexCoord.y;
         }
         else
         {
             // For flat-top hexes: every other column offset by half hex height
+            float offsetY = ((hexCoord.x % 2) + 2) % 2; // Ensures positive result for negative x
             x = hexSize * 1.5f * hexCoord.x;
-            y = hexSize * Mathf.Sqrt(3f) * (hexCoord.y + (hexCoord.x % 2) * 0.5f);
+            y = hexSize * Mathf.Sqrt(3f) * (hexCoord.y + offsetY * 0.5f);
         }
         
-        return new Vector3(x, y, 0); // Z=0 for 2D top-down view
+        return new Vector3(x, y, 100); // Z=100 to render behind UI
     }
     
     public static Vector2Int WorldToHexPosition(Vector3 worldPos, float hexSize, bool pointyTop = true)
     {
-        float x, y;
-        
         if (pointyTop)
         {
-            x = (Mathf.Sqrt(3f) / 3f * worldPos.x - 1f / 3f * worldPos.y) / hexSize;
-            y = (2f / 3f * worldPos.y) / hexSize;
+            // Inverse of the HexToWorldPosition calculation for pointy-top
+            float q = (Mathf.Sqrt(3f) / 3f * worldPos.x - 1f / 3f * worldPos.y) / hexSize;
+            float r = (2f / 3f * worldPos.y) / hexSize;
+            return HexRound(q, r);
         }
         else
         {
-            x = (2f / 3f * worldPos.x) / hexSize;
-            y = (-1f / 3f * worldPos.x + Mathf.Sqrt(3f) / 3f * worldPos.y) / hexSize;
+            // Inverse of the HexToWorldPosition calculation for flat-top
+            float q = (2f / 3f * worldPos.x) / hexSize;
+            float r = (-1f / 3f * worldPos.x + Mathf.Sqrt(3f) / 3f * worldPos.y) / hexSize;
+            return HexRound(q, r);
         }
-        
-        return HexRound(x, y);
     }
     
     public static Vector2Int HexRound(float x, float y)

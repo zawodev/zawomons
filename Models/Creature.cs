@@ -4,6 +4,9 @@ using System;
 
 namespace Models {
 
+    // Name propositions:
+    // - Elemons (Aquamon, Firemon, etc.)
+    
     [System.Serializable]
     public class Creature {
         public int id;
