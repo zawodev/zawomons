@@ -24,7 +24,7 @@ namespace Systems.API {
             playerData.gems = apiResponse.gems;
             playerData.lastPlayed = apiResponse.last_played;
             playerData.createdAt = apiResponse.created_at;
-            playerData.can_claim_start_creature = apiResponse.can_claim_start_creature;
+            playerData.can_claim_start_creature = apiResponse.can_claim_creature;
 
             // Convert creatures
             playerData.creatures = new List<Creature>();
@@ -124,50 +124,6 @@ namespace Systems.API {
                     Debug.LogWarning($"Nie znaleziono spella o ID: {apiSpell.spell_id}");
                 }
             }
-        }
-        
-        public static SpellRequestData[] ConvertCreatureSpellsToApiFormat(Creature creature)
-        {
-            var spellRequests = new System.Collections.Generic.List<SpellRequestData>();
-            
-            // Dodaj znane spelle (is_learned = true)
-            foreach (var spell in creature.spells)
-            {
-                var spellRequest = new SpellRequestData
-                {
-                    spell_id = spell.id,
-                    start_time = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                    end_time = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"), // Dla nauczonych spelli start_time = end_time
-                    is_learned = true
-                };
-                spellRequests.Add(spellRequest);
-            }
-            
-            // Dodaj uczące się spelle (is_learned = false)
-            var allSpells = Systems.GameManager.Instance?.GetAllSpells();
-            if (allSpells != null)
-            {
-                foreach (var learningSpell in creature.learningSpells)
-                {
-                    Spell spell = allSpells.Find(s => s.name == learningSpell.spellName);
-                    if (spell != null)
-                    {
-                        var startTime = System.DateTime.UnixEpoch.AddSeconds(learningSpell.startTimeUtc);
-                        var endTime = startTime.AddSeconds(learningSpell.learnTimeSeconds);
-                        
-                        var spellRequest = new SpellRequestData
-                        {
-                            spell_id = spell.id,
-                            start_time = startTime.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                            end_time = endTime.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                            is_learned = false
-                        };
-                        spellRequests.Add(spellRequest);
-                    }
-                }
-            }
-            
-            return spellRequests.ToArray();
         }
 
         private static CreatureElement ParseElement(string elementString)

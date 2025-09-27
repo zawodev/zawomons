@@ -61,6 +61,7 @@ namespace UI.Collection {
             // Subskrybuj eventy GameManager
             if (GameManager.Instance != null) {
                 GameManager.Instance.OnCreatureAdded += OnCreatureAdded;
+                GameManager.Instance.OnCreatureUpdated += OnCreatureUpdated;
             }
         }
         
@@ -68,6 +69,7 @@ namespace UI.Collection {
             // Odsubskrybuj eventy GameManager
             if (GameManager.Instance != null) {
                 GameManager.Instance.OnCreatureAdded -= OnCreatureAdded;
+                GameManager.Instance.OnCreatureUpdated -= OnCreatureUpdated;
             }
         }
         
@@ -391,6 +393,12 @@ namespace UI.Collection {
         }
         
         private void OnCreatureAdded(Creature newCreature) {
+            LoadCreaturesData();
+            RefreshCreaturesList();
+        }
+
+        private void OnCreatureUpdated(Creature updatedCreature) {
+            // Odśwież listę stworków po aktualizacji (np. zmianie nazwy)
             LoadCreaturesData();
             RefreshCreaturesList();
         }

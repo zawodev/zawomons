@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Models;
 using Systems;
 using System.Linq;
@@ -27,7 +28,17 @@ namespace UI.Collection {
         
         [Header("Stats Tab UI")]
         public Image creatureImage;
-        public TMP_Text creatureNameText;
+        
+        [Header("Creature Name UI Groups")]
+        public GameObject nameDisplayGroup;      // Grupa z tekstem i przyciskiem Edit
+        public TMP_Text creatureNameText;       // Tekst z nazwą stworka
+        public Button editNameButton;           // Przycisk Edit Name
+        
+        public GameObject nameEditGroup;        // Grupa z input fieldem i przyciskiem Save
+        public TMP_InputField creatureNameInput;// Input field do edycji nazwy
+        public Button saveNameButton;           // Przycisk Save
+        public Button cancelNameButton;         // Przycisk Cancel (opcjonalnie)
+        
         public TMP_Text creatureLevelText;
         public TMP_Text creatureElementsText;
         public Slider hpProgressBar;
@@ -56,6 +67,7 @@ namespace UI.Collection {
         // Data
         private Creature currentCreature;
         private TabType currentTab = TabType.Stats;
+        private bool isEditingName = false;
         
         // Tab colors
         [Header("Tab Styling")]
@@ -72,6 +84,125 @@ namespace UI.Collection {
         private void Awake() {
             InitializeUI();
             LoadTabSettingsFromPlayerPrefs();
+        }
+
+        private void OnEnable() {
+            // Subscribe to GameManager events
+            if (GameManager.Instance != null) {
+                GameManager.Instance.OnCreatureUpdated += OnCreatureUpdated;
+            }
+        }
+
+        private void OnDisable() {
+            // Unsubscribe from GameManager events
+            if (GameManager.Instance != null) {
+                GameManager.Instance.OnCreatureUpdated -= OnCreatureUpdated;
+            }
+        }
+
+        private void OnCreatureUpdated(Creature updatedCreature) {
+            // Zaktualizuj UI tylko jeśli to jest aktualnie wyświetlany stworek
+            if (currentCreature != null && currentCreature.id == updatedCreature.id) {
+                // Zaktualizuj referencję do stworka
+                currentCreature = updatedCreature;
+                
+                // Wyjdź z trybu edycji po pomyślnej aktualizacji
+                SetNameEditMode(false);
+                
+                // Odśwież zakładkę Stats jeśli jest aktywna
+                if (currentTab == TabType.Stats) {
+                    UpdateStatsTab();
+                }
+            }
+        }
+
+        private void SetNameEditMode(bool editMode) {
+            isEditingName = editMode;
+            
+            // Pokaż/ukryj odpowiednie grupy UI
+            if (nameDisplayGroup != null) {
+                nameDisplayGroup.SetActive(!editMode);
+            }
+            if (nameEditGroup != null) {
+                nameEditGroup.SetActive(editMode);
+            }
+            
+            // Jeśli wchodzimy w tryb edycji, ustaw wartość input fielda
+            if (editMode && creatureNameInput != null && currentCreature != null) {
+                creatureNameInput.text = currentCreature.name;
+                creatureNameInput.Select();
+                creatureNameInput.ActivateInputField();
+            }
+        }
+
+        private void OnEditNameClicked() {
+            SetNameEditMode(true);
+        }
+
+        private void OnCancelNameClicked() {
+            SetNameEditMode(false);
+        }
+
+        private async void OnSaveNameClicked() {
+            if (currentCreature == null || !isEditingName) {
+                return;
+            }
+
+            string newName = creatureNameInput != null ? creatureNameInput.text?.Trim() : "";
+
+            // Sprawdź czy pole nie jest puste
+            if (string.IsNullOrEmpty(newName)) {
+                SetNameEditMode(false);
+                return;
+            }
+
+            // Sprawdź długość nazwy (maksymalnie 50 znaków zgodnie z backend)
+            if (newName.Length > 50) {
+                newName = newName.Substring(0, 50);
+                if (creatureNameInput != null) {
+                    creatureNameInput.text = newName;
+                }
+            }
+
+            // Sprawdź czy nazwa się faktycznie zmieniła PO przycięciu
+            if (newName == currentCreature.name) {
+                SetNameEditMode(false);
+                return;
+            }
+
+            // Zablokuj przyciski podczas aktualizacji
+            if (saveNameButton != null) saveNameButton.interactable = false;
+            if (cancelNameButton != null) cancelNameButton.interactable = false;
+            if (creatureNameInput != null) creatureNameInput.interactable = false;
+
+            try {
+                // Wywołaj API przez GameManager
+                bool success = await GameManager.Instance.UpdateCreatureName(currentCreature, newName);
+                
+                if (!success) {
+                    Debug.LogError("Nie udało się zmienić nazwy stworka!");
+                    // Nie zmieniamy trybu edycji przy błędzie, żeby użytkownik mógł spróbować ponownie
+                }
+                // Jeśli sukces, tryb edycji zostanie wyłączony w OnCreatureUpdated
+            } finally {
+                // Odblokuj przyciski
+                if (saveNameButton != null) saveNameButton.interactable = true;
+                if (cancelNameButton != null) cancelNameButton.interactable = true;
+                if (creatureNameInput != null) creatureNameInput.interactable = true;
+            }
+        }
+
+        private void OnNameInputEndEdit(string text) {
+            // Sprawdź czy użytkownik nacisnął Enter (Submit) czy Escape/Tab (Cancel)
+            if (Input.inputString.Contains("\n") || Input.inputString.Contains("\r")) {
+                // Enter - zapisz zmiany
+                OnSaveNameClicked();
+            } else if (Input.inputString.Contains("\u001b")) {
+                // Escape - anuluj
+                OnCancelNameClicked();
+            }
+            // Dla innych klawiszy (Tab, kliknięcie na inny element) nie robimy nic
+            // Użytkownik musi użyć przycisków Save/Cancel
         }
         
         private void InitializeUI() {
@@ -100,6 +231,25 @@ namespace UI.Collection {
                 transferButton.onClick.AddListener(OnTransferButtonClicked);
             }
             
+            // Creature name UI events
+            if (editNameButton != null) {
+                editNameButton.onClick.AddListener(OnEditNameClicked);
+            }
+            if (saveNameButton != null) {
+                saveNameButton.onClick.AddListener(OnSaveNameClicked);
+            }
+            if (cancelNameButton != null) {
+                cancelNameButton.onClick.AddListener(OnCancelNameClicked);
+            }
+            
+            // Input field events - Enter key to save, Escape to cancel
+            if (creatureNameInput != null) {
+                creatureNameInput.onEndEdit.AddListener(OnNameInputEndEdit);
+            }
+            
+            // Initialize name editing UI state
+            SetNameEditMode(false);
+            
             // Initialize as hidden
             if (panelRoot != null) {
                 panelRoot.SetActive(false);
@@ -126,6 +276,11 @@ namespace UI.Collection {
         }
         
         public void HidePanel() {
+            // Anuluj tryb edycji nazwy jeśli jest aktywny
+            if (isEditingName) {
+                SetNameEditMode(false);
+            }
+            
             if (panelRoot != null) {
                 panelRoot.SetActive(false);
             }
@@ -393,6 +548,8 @@ namespace UI.Collection {
             Debug.Log("Transfer button clicked - but no creatures nearby (mock)");
             // Future: Handle equipment transfers between creatures
         }
+
+
         
         private string GetElementDisplayName(CreatureElement element) {
             switch (element) {
@@ -411,6 +568,23 @@ namespace UI.Collection {
             // Clean up event listeners
             if (closeButton != null) {
                 closeButton.onClick.RemoveAllListeners();
+            }
+            if (editNameButton != null) {
+                editNameButton.onClick.RemoveAllListeners();
+            }
+            if (saveNameButton != null) {
+                saveNameButton.onClick.RemoveAllListeners();
+            }
+            if (cancelNameButton != null) {
+                cancelNameButton.onClick.RemoveAllListeners();
+            }
+            if (creatureNameInput != null) {
+                creatureNameInput.onEndEdit.RemoveAllListeners();
+            }
+            
+            // Unsubscribe from GameManager events
+            if (GameManager.Instance != null) {
+                GameManager.Instance.OnCreatureUpdated -= OnCreatureUpdated;
             }
         }
         

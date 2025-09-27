@@ -108,14 +108,14 @@ namespace UI {
                 Debug.Log("Loading friends and players data from API...");
                 
                 // Load friends data
-                friendsData = await GameAPI.GetFriendsAsync();
+                friendsData = await GameAPI.Players.GetMyFriendsAsync();
                 if (friendsData == null) {
                     Debug.LogWarning("Failed to load friends data from API");
                     friendsData = new PlayerSummaryResponse[0];
                 }
                 
                 // Load all players data
-                allPlayersData = await GameAPI.GetAllPlayersAsync();
+                allPlayersData = await GameAPI.Players.GetAllPlayersAsync();
                 if (allPlayersData == null) {
                     Debug.LogWarning("Failed to load players data from API");
                     allPlayersData = new PlayerSummaryResponse[0];

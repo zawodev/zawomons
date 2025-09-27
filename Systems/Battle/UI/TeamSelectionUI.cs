@@ -91,7 +91,10 @@ namespace Systems.Battle.UI
                 var zaw = zawomons[i];
                 var btnObj = Instantiate(zawomonButtonPrefab, zawomonGridParent);
                 var txt = btnObj.GetComponentInChildren<TextMeshProUGUI>();
+                var img = btnObj.transform.Find("Icon").GetComponent<Image>();
+
                 txt.text = $"{zaw.name} ({zaw.mainElement})";
+                img.color = zaw.color;
                 
                 // Add click handlers
                 var trigger = btnObj.GetComponent<EventTrigger>();

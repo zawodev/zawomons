@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using System.Linq;
 using Models;
 using Unity.VisualScripting;
 using Systems.API;
@@ -35,6 +36,7 @@ namespace Systems {
         public event System.Action<int> OnPlayerStoneUpdated;
         public event System.Action<int> OnPlayerGemsUpdated;
         public event System.Action<Creature> OnCreatureAdded;
+        public event System.Action<Creature> OnCreatureUpdated;
 
         public async void SetAuthToken(string token)
         {
@@ -42,14 +44,14 @@ namespace Systems {
             Debug.Log("Otrzymano token: " + (string.IsNullOrEmpty(token) ? "PUSTY" : token.Substring(0, 10) + "..."));
             GameAPI.SetAuthToken(token);
 
-            playerData = await GameAPI.GetPlayerDataAsync();
+            playerData = await GameAPI.Players.GetMyDataAsync();
             if (playerData != null)
             {
                 // Sprawdź czy gracz może otrzymać startowego stworka
-                if (playerData.can_claim_start_creature)
+                /*if (playerData.can_claim_start_creature)
                 {
                     await GiveStarterCreature();
-                }
+                }*/
                 
                 OnPlayerDataReady?.Invoke();
                 OnPlayerGoldUpdated?.Invoke(playerData.gold);
@@ -89,7 +91,7 @@ namespace Systems {
                 return;
             }
 
-            PlayerData newData = await GameAPI.GetPlayerDataAsync();
+            PlayerData newData = await GameAPI.Players.GetMyDataAsync();
             if (newData != null)
             {
                 playerData = newData;
@@ -101,70 +103,18 @@ namespace Systems {
             }
         }
 
-        // Metody do aktualizacji poszczególnych zasobów z automatycznym zapisem do API
-        public async void UpdateGold(int newGold)
-        {
-            if (playerData != null)
-            {
-                playerData.gold = newGold;
-                OnPlayerGoldUpdated?.Invoke(newGold);
-                
-                // Automatycznie zapisz do API
-                await GameAPI.SetSingleResourceAsync("gold", newGold);
-            }
-        }
-
-        public async void UpdateWood(int newWood)
-        {
-            if (playerData != null)
-            {
-                playerData.wood = newWood;
-                OnPlayerWoodUpdated?.Invoke(newWood);
-                
-                // Automatycznie zapisz do API
-                await GameAPI.SetSingleResourceAsync("wood", newWood);
-            }
-        }
-
-        public async void UpdateStone(int newStone)
-        {
-            if (playerData != null)
-            {
-                playerData.stone = newStone;
-                OnPlayerStoneUpdated?.Invoke(newStone);
-                
-                // Automatycznie zapisz do API
-                await GameAPI.SetSingleResourceAsync("stone", newStone);
-            }
-        }
-
-        public async void UpdateGems(int newGems)
-        {
-            if (playerData != null)
-            {
-                playerData.gems = newGems;
-                OnPlayerGemsUpdated?.Invoke(newGems);
-                
-                // Automatycznie zapisz do API
-                await GameAPI.SetSingleResourceAsync("gems", newGems);
-            }
-        }
-
         // Metoda do dawania startowego stworka nowym graczom
         private async Task GiveStarterCreature()
         {
             if (playerData == null || !playerData.can_claim_start_creature)
                 return;
 
-            Debug.Log("Dajemy startowego stworka nowemu graczowi!");
+            Debug.Log("Claimuję startowego stworka dla nowego gracza!");
             
-            // Wygeneruj losowego stworka (poziom 1)
-            Creature starterCreature = CreatureGenerator.GenerateRandomZawomon(1);
+            // Użyj nowego endpointu do claim darmowego stworka
+            Creature starterCreature = await GameAPI.Creatures.ClaimFreeCreatureAsync();
             
-            // Wyślij stworka do backendu
-            bool success = await GameAPI.AddCreatureAsync(starterCreature);
-            
-            if (success)
+            if (starterCreature != null)
             {
                 Debug.Log($"Pomyślnie dodano startowego stworka: {starterCreature.name} (Poziom {starterCreature.level})");
                 
@@ -182,48 +132,52 @@ namespace Systems {
                 Debug.LogError("Błąd podczas zapisywania startowego stworka do API");
             }
         }
-
-        // Wygodne metody do dodawania/odejmowania zasobów
-        public void AddGold(int amount)
-        {
-            if (playerData != null)
-            {
-                int newAmount = Mathf.Max(0, playerData.gold + amount);
-                UpdateGold(newAmount);
-            }
-        }
-
-        public void AddWood(int amount)
-        {
-            if (playerData != null)
-            {
-                int newAmount = Mathf.Max(0, playerData.wood + amount);
-                UpdateWood(newAmount);
-            }
-        }
-
-        public void AddStone(int amount)
-        {
-            if (playerData != null)
-            {
-                int newAmount = Mathf.Max(0, playerData.stone + amount);
-                UpdateStone(newAmount);
-            }
-        }
-
-        public void AddGems(int amount)
-        {
-            if (playerData != null)
-            {
-                int newAmount = Mathf.Max(0, playerData.gems + amount);
-                UpdateGems(newAmount);
-            }
-        }
         
         // Metoda do dodawania stworka i wywołania eventu
         public void NotifyCreatureAdded(Creature creature)
         {
             OnCreatureAdded?.Invoke(creature);
+        }
+
+        // Metoda do aktualizacji nazwy stworka przez API i lokalnie
+        public async Task<bool> UpdateCreatureName(Creature creature, string newName)
+        {
+            if (creature == null || string.IsNullOrEmpty(newName))
+            {
+                Debug.LogError("Nie można zaktualizować stworka - brak danych!");
+                return false;
+            }
+
+            // Wywołaj API aby zaktualizować nazwę na serwerze
+            Creature updatedCreature = await GameAPI.Creatures.UpdateMyCreatureAsync(creature.id, newName);
+            
+            if (updatedCreature != null)
+            {
+                // Jeśli API się powiodło, zaktualizuj lokalnie
+                string oldName = creature.name;
+                creature.name = updatedCreature.name;
+                
+                // Zaktualizuj także w playerData jeśli stworek tam jest
+                if (playerData?.creatures != null)
+                {
+                    var localCreature = playerData.creatures.FirstOrDefault(c => c.id == creature.id);
+                    if (localCreature != null)
+                    {
+                        localCreature.name = updatedCreature.name;
+                    }
+                }
+                
+                Debug.Log($"Pomyślnie zmieniono nazwę stworka z '{oldName}' na '{updatedCreature.name}'");
+                
+                // Powiadom UI o aktualizacji stworka
+                OnCreatureUpdated?.Invoke(creature);
+                return true;
+            }
+            else
+            {
+                Debug.LogError($"Nie udało się zaktualizować nazwy stworka przez API!");
+                return false;
+            }
         }
 
 
