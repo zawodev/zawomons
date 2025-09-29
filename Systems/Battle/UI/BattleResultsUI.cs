@@ -3,7 +3,8 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using System.Linq;
-using Models;
+using Systems.Battle.Models;
+using Systems.Creatures.Models;
 
 namespace Systems.Battle.UI
 {

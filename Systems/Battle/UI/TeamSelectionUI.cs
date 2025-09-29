@@ -3,8 +3,9 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
 using System.Collections.Generic;
-using Models;
-using Systems;
+using Systems.Battle.Models;
+using Systems.Creatures.Models;
+using Systems.Game.Core;
 
 namespace Systems.Battle.UI
 {
