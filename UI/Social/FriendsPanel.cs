@@ -368,11 +368,16 @@ namespace UI.Social {
             Debug.Log($"Starting online sparring match against {playerUsername}");
             
             if (battleSystem != null) {
+                // Configure battle as Online Friendly Match (no consequences)
+                battleSystem.SetBattleConfiguration(
+                    Systems.Battle.Models.BattleMode.Online, 
+                    Systems.Battle.Models.BattleType.FriendlyMatch
+                );
+                
                 // Hide this panel
                 HidePanel();
                 
-                // Mock: Start battle in online mode but without consequences
-                // For now, we'll use the same team selection as offline
+                // Start team selection for online sparring
                 if (battleSystem.teamSelectionPanel != null) {
                     battleSystem.teamSelectionPanel.SetActive(true);
                 }
@@ -385,10 +390,16 @@ namespace UI.Social {
             Debug.Log("Starting offline battle (local multiplayer)");
             
             if (battleSystem != null) {
+                // Configure battle as Local Friendly Match (no consequences)
+                battleSystem.SetBattleConfiguration(
+                    Systems.Battle.Models.BattleMode.Local, 
+                    Systems.Battle.Models.BattleType.FriendlyMatch
+                );
+                
                 // Hide this panel
                 HidePanel();
                 
-                // Start local battle
+                // Start team selection for local battle
                 if (battleSystem.teamSelectionPanel != null) {
                     battleSystem.teamSelectionPanel.SetActive(true);
                 }

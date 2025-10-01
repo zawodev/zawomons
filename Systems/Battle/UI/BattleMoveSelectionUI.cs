@@ -2,35 +2,39 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
+using System.Linq;
 using Systems.Battle.Models;
+using Systems.Battle.Core;
+using Systems.Battle.Components;
 using Systems.Creatures.Models;
 
 namespace Systems.Battle.UI
 {
     public class BattleMoveSelectionUI : MonoBehaviour
     {
-        [Header("UI Components")]
-        public TextMeshProUGUI teamAInfoText;
-        public TextMeshProUGUI teamBInfoText;
+        [Header("New UI Systems")]
+        public BattleSelectionUI selectionUI;
+        public BattleTurnQueueUI turnQueueUI;
+        public BattleArena battleArena;
+        
+        [Header("Legacy UI Components")]
         public TextMeshProUGUI turnInfoText;
         public Button nextTurnButton;
-        public GameObject teamAPanel;
-        public GameObject teamBPanel;
         
-        [Header("Visibility Toggles")]
-        public GameObject teamAVisibilityIndicator;
-        public GameObject teamBVisibilityIndicator;
+        [Header("Battle System Reference")]
+        public Systems.Battle.Core.BattleSystem battleSystem;
         
-        // Player Selection State
-        private int teamASelectedZawomon = 0;
-        private int teamBSelectedZawomon = 0;
-        private int teamASelectedSpell = 0;
-        private int teamBSelectedSpell = 0;
-        private bool teamAVisible = true;
-        private bool teamBVisible = true;
+        [Header("Network")]
+        public Systems.Battle.Network.IBattleNetworkHandler networkHandler;
         
         // References
         private BattleState battleState;
+        
+        // Target selection system
+        private Dictionary<BattleParticipant, BattleParticipant> selectedTargets = new Dictionary<BattleParticipant, BattleParticipant>();
+        
+        // Auto-trigger protection
+        private bool battleStartTriggered = false;
         
         // Events
         public System.Action OnBothTeamsReady;
@@ -38,18 +42,65 @@ namespace Systems.Battle.UI
         void Start()
         {
             if (nextTurnButton != null)
-                nextTurnButton.onClick.AddListener(() => OnBothTeamsReady?.Invoke());
+                nextTurnButton.onClick.AddListener(() => {
+                    HandleNextTurnButton();
+                });
+                
+            SetupEventHandlers();
+        }
+        
+        private void HandleNextTurnButton()
+        {
+            if (battleSystem != null && battleSystem.IsPlayingAnimations)
+            {
+                // Accelerate current animations
+                Debug.Log("[BattleMoveSelectionUI] NextTurn button clicked during animations - accelerating animations");
+                battleSystem.AccelerateCurrentAnimations();
+            }
+            else if (battleSystem != null && battleSystem.GetBattleState() != null && battleSystem.GetBattleState().phase == Systems.Battle.Models.BattlePhase.Selection)
+            {
+                // Only process turn if we're in Selection phase
+                Debug.Log("[BattleMoveSelectionUI] NextTurn button clicked during Selection phase - starting battle");
+                OnBothTeamsReady?.Invoke();
+            }
+            else
+            {
+                Debug.Log("[BattleMoveSelectionUI] NextTurn button clicked but battle is not in Selection phase or no animations playing - ignoring");
+            }
+        }
+        
+        private void SetupEventHandlers()
+        {
+            if (selectionUI != null)
+            {
+                selectionUI.OnSpellSelected += OnSpellSelected;
+                selectionUI.OnVisibilityChanged += OnVisibilityChanged;
+                selectionUI.OnTargetIndicatorChanged += OnTargetIndicatorChanged;
+            }
+            
+            if (turnQueueUI != null)
+            {
+                turnQueueUI.OnQueueAnimationComplete += OnQueueAnimationComplete;
+            }
+            
+            if (battleArena != null)
+            {
+                battleArena.OnCreatureAnimationComplete += OnCreatureAnimationComplete;
+            }
         }
         
         public void Initialize(BattleState state)
         {
             battleState = state;
-            teamASelectedZawomon = 0;
-            teamBSelectedZawomon = 0;
-            teamASelectedSpell = 0;
-            teamBSelectedSpell = 0;
-            teamAVisible = true;
-            teamBVisible = true;
+            
+            // Initialize all subsystems
+            if (selectionUI != null)
+                selectionUI.Initialize(state);
+                
+            if (battleArena != null)
+                battleArena.SetupArena(state);
+                
+            selectedTargets.Clear();
             
             UpdateUI();
         }
@@ -64,85 +115,64 @@ namespace Systems.Battle.UI
         
         void HandleInput()
         {
-            if (UnityEngine.InputSystem.Keyboard.current == null) return;
-            var keyboard = UnityEngine.InputSystem.Keyboard.current;
-            
-            // Team A (Red) Controls: WASDQE
-            HandleTeamInput(
-                keyboard.wKey.wasPressedThisFrame, keyboard.sKey.wasPressedThisFrame,
-                keyboard.aKey.wasPressedThisFrame, keyboard.dKey.wasPressedThisFrame,
-                keyboard.qKey.wasPressedThisFrame, keyboard.eKey.wasPressedThisFrame,
-                battleState.teamA, ref teamASelectedZawomon, ref teamASelectedSpell, ref teamAVisible
-            );
-            
-            // Team B (Blue) Controls: IJKLUO
-            HandleTeamInput(
-                keyboard.iKey.wasPressedThisFrame, keyboard.kKey.wasPressedThisFrame,
-                keyboard.jKey.wasPressedThisFrame, keyboard.lKey.wasPressedThisFrame,
-                keyboard.uKey.wasPressedThisFrame, keyboard.oKey.wasPressedThisFrame,
-                battleState.teamB, ref teamBSelectedZawomon, ref teamBSelectedSpell, ref teamBVisible
-            );
+            if (selectionUI != null)
+                selectionUI.HandleInput();
         }
         
-        void HandleTeamInput(bool upPressed, bool downPressed, bool leftPressed, bool rightPressed, 
-                           bool toggleVisibilityPressed, bool confirmPressed,
-                           List<BattleParticipant> team, ref int selectedZawomon, ref int selectedSpell, ref bool teamVisible)
+        private void OnSpellSelected(BattleParticipant caster, Spell spell, BattleParticipant target)
         {
-            if (team.Count == 0) return;
-            
-            // Filter alive team members
-            var aliveMembers = team.FindAll(p => p.IsAlive);
-            if (aliveMembers.Count == 0) return;
-            
-            // Ensure selected zawomon is alive
-            if (selectedZawomon >= aliveMembers.Count)
-                selectedZawomon = 0;
-            
-            var currentParticipant = aliveMembers[selectedZawomon];
-            
-            // Zawomon selection (W/S or I/K)
-            if (upPressed)
+            // Store target selection if applicable
+            if (target != null)
             {
-                selectedZawomon = (selectedZawomon - 1 + aliveMembers.Count) % aliveMembers.Count;
-                selectedSpell = 0; // Reset spell selection
-            }
-            else if (downPressed)
-            {
-                selectedZawomon = (selectedZawomon + 1) % aliveMembers.Count;
-                selectedSpell = 0; // Reset spell selection
+                selectedTargets[caster] = target;
             }
             
-            // Spell selection (A/D or J/L)
-            if (leftPressed && currentParticipant.creature.spells.Count > 0)
+            // Update arena to show target indicators
+            if (battleArena != null && target != null)
             {
-                selectedSpell = (selectedSpell - 1 + currentParticipant.creature.spells.Count) % currentParticipant.creature.spells.Count;
-            }
-            else if (rightPressed && currentParticipant.creature.spells.Count > 0)
-            {
-                selectedSpell = (selectedSpell + 1) % currentParticipant.creature.spells.Count;
+                battleArena.ShowTargetIndicator(target, true);
             }
             
-            // Visibility toggle (Q/U) - only in local mode
-            if (toggleVisibilityPressed && battleState.mode == BattleMode.Local)
+            // Check if all teams are ready and update turn queue
+            if (battleState.AreBothTeamsReady)
             {
-                teamVisible = !teamVisible;
+                InitializeTurnQueue();
             }
-            
-            // Confirm move (E/O)
-            if (confirmPressed && currentParticipant.creature.spells.Count > 0)
+        }
+        
+        private void OnVisibilityChanged(bool teamAVisible, bool teamBVisible)
+        {
+            // Handle visibility changes if needed
+            // For now, the BattleSelectionUI handles this internally
+        }
+        
+        private void OnQueueAnimationComplete()
+        {
+            // Turn queue animation finished
+            // This can trigger turn processing
+        }
+        
+        private void OnCreatureAnimationComplete(BattleCreature creature)
+        {
+            // Creature animation finished
+            // Can be used to chain animations or proceed to next action
+        }
+        
+        private void OnTargetIndicatorChanged(BattleParticipant target, bool show)
+        {
+            if (battleArena != null)
             {
-                currentParticipant.selectedSpell = currentParticipant.creature.spells[selectedSpell];
-                currentParticipant.hasConfirmedMove = true;
-                
-                // Move to next unconfirmed zawomon
-                for (int i = 0; i < aliveMembers.Count; i++)
+                if (show && target != null)
                 {
-                    int nextIdx = (selectedZawomon + i + 1) % aliveMembers.Count;
-                    if (!aliveMembers[nextIdx].hasConfirmedMove)
+                    // Clear all indicators first, then show on target
+                    battleArena.ShowTargetIndicator(target, true);
+                }
+                else
+                {
+                    // Clear all target indicators
+                    foreach (var participant in battleState.teamA.Concat(battleState.teamB))
                     {
-                        selectedZawomon = nextIdx;
-                        selectedSpell = 0;
-                        break;
+                        battleArena.ShowTargetIndicator(participant, false);
                     }
                 }
             }
@@ -152,95 +182,63 @@ namespace Systems.Battle.UI
         {
             if (battleState == null) return;
             
-            // Update team panels visibility
-            if (teamAPanel != null) teamAPanel.SetActive(teamAVisible);
-            if (teamBPanel != null) teamBPanel.SetActive(teamBVisible);
+            // Update selection UI
+            if (selectionUI != null)
+                selectionUI.UpdateUI();
             
-            // Update visibility indicators
-            if (teamAVisibilityIndicator != null) 
-                teamAVisibilityIndicator.SetActive(!teamAVisible);
-            if (teamBVisibilityIndicator != null) 
-                teamBVisibilityIndicator.SetActive(!teamBVisible);
+            // Update arena visuals
+            if (battleArena != null)
+                battleArena.UpdateAllHealthVisuals();
             
-            // Update team info texts
-            UpdateTeamInfoText(teamAInfoText, battleState.teamA, teamASelectedZawomon, teamASelectedSpell, teamAVisible, "Team A (Red)");
-            UpdateTeamInfoText(teamBInfoText, battleState.teamB, teamBSelectedZawomon, teamBSelectedSpell, teamBVisible, "Team B (Blue)");
-            
-            // Update turn info
+            // Update turn info text (legacy)
             if (turnInfoText != null)
             {
-                string status = "";
-                if (battleState.IsTeamAReady && battleState.IsTeamBReady)
-                    status = "Both teams ready! Click Next Turn or wait for resolution.";
-                else if (battleState.IsTeamAReady)
-                    status = "Team A ready. Waiting for Team B...";
-                else if (battleState.IsTeamBReady)
-                    status = "Team B ready. Waiting for Team A...";
-                else
-                    status = "Select moves for your Zawomons. E/O to confirm, Q/U to toggle visibility.";
-                
-                turnInfoText.text = $"Turn: {battleState.currentTurn + 1}\n{status}";
+                string status = GetBattleStatusText();
+                turnInfoText.text = $"Turn: {battleState.currentTurn + 1}\\n{status}";
             }
             
-            // Update next turn button
+            // Check for automatic battle start when both teams manual ready + all confirmed
+            bool bothReady = battleState.AreBothTeamsReady;
+            //Debug.Log($"[BattleMoveSelectionUI] UpdateDisplay - Both teams ready: {bothReady}, Team A ready: {battleState.IsTeamAReady}, Team B ready: {battleState.IsTeamBReady}");
+            //Debug.Log($"[BattleMoveSelectionUI] Manual ready states - Team A: {battleState.teamAManualReady}, Team B: {battleState.teamBManualReady}");
+            
+            // Auto-trigger battle when both teams are manually ready AND all creatures have confirmed moves
+            if (bothReady && battleState.phase == BattlePhase.Selection && !battleStartTriggered)
+            {
+                Debug.Log("[BattleMoveSelectionUI] Both teams ready - auto-triggering OnBothTeamsReady");
+                battleStartTriggered = true;
+                OnBothTeamsReady?.Invoke();
+            }
+            
+            // Update next turn button (for manual fallback)
             if (nextTurnButton != null)
-                nextTurnButton.interactable = battleState.AreBothTeamsReady;
+            {
+                nextTurnButton.interactable = bothReady;
+            }
         }
         
-        void UpdateTeamInfoText(TextMeshProUGUI textComponent, List<BattleParticipant> team, 
-                              int selectedZawomon, int selectedSpell, bool isVisible, string teamName)
+        private string GetBattleStatusText()
         {
-            if (textComponent == null) return;
-            
-            if (!isVisible)
+            // Use manual ready states instead of hasConfirmedMove states
+            if (battleState.teamAManualReady && battleState.teamBManualReady)
+                return "Both teams ready! Battle starting...";
+            else if (battleState.teamAManualReady)
+                return "Team A ready. Waiting for Team B to hold O...";
+            else if (battleState.teamBManualReady)
+                return "Team B ready. Waiting for Team A to hold E...";
+            else
+                return "Select moves for your Zawomons. Hold E (Team A) or O (Team B) when ready.";
+        }
+        
+        private void InitializeTurnQueue()
+        {
+            if (turnQueueUI != null && battleState != null)
             {
-                textComponent.text = $"{teamName}\n[HIDDEN]";
-                return;
+                turnQueueUI.InitializeQueue(battleState);
             }
             
-            var aliveMembers = team.FindAll(p => p.IsAlive);
-            if (aliveMembers.Count == 0)
-            {
-                textComponent.text = $"{teamName}\nAll defeated!";
-                return;
-            }
-            
-            string text = $"{teamName}\n\n";
-            
-            for (int i = 0; i < aliveMembers.Count; i++)
-            {
-                var participant = aliveMembers[i];
-                string color = "white";
-                
-                if (i == selectedZawomon)
-                    color = participant.hasConfirmedMove ? "green" : "yellow";
-                else if (participant.hasConfirmedMove)
-                    color = "grey";
-                
-                text += $"<color={color}>{participant.creature.name} ({participant.currentHP}/{participant.creature.maxHP} HP)";
-                
-                if (participant.hasConfirmedMove && participant.selectedSpell != null)
-                    text += $" - {participant.selectedSpell.name}";
-                
-                text += "</color>\n";
-            }
-            
-            // Show spells for selected zawomon
-            if (selectedZawomon < aliveMembers.Count)
-            {
-                var current = aliveMembers[selectedZawomon];
-                if (!current.hasConfirmedMove && current.creature.spells.Count > 0)
-                {
-                    text += "\nSpells:\n";
-                    for (int i = 0; i < current.creature.spells.Count; i++)
-                    {
-                        string spellColor = i == selectedSpell ? "red" : "grey";
-                        text += $"<color={spellColor}>{current.creature.spells[i].name}</color>\n";
-                    }
-                }
-            }
-            
-            textComponent.text = text;
+            // Don't auto-trigger battle start - let manual ready system handle it
+            Debug.Log("[BattleMoveSelectionUI] InitializeTurnQueue - queue initialized, waiting for manual ready");
         }
         
         public void ResetTurn()
@@ -254,11 +252,36 @@ namespace Systems.Battle.UI
             foreach (var participant in battleState.teamB)
                 participant.ResetMoveSelection();
             
-            // Reset selections to first alive member
-            teamASelectedZawomon = 0;
-            teamBSelectedZawomon = 0;
-            teamASelectedSpell = 0;
-            teamBSelectedSpell = 0;
+            // Reset manual ready states
+            battleState.teamAManualReady = false;
+            battleState.teamBManualReady = false;
+            
+            // Reset battle start trigger
+            battleStartTriggered = false;
+            
+            // Clear target selections
+            selectedTargets.Clear();
+            
+            // Clear target indicators in arena
+            if (battleArena != null)
+            {
+                foreach (var participant in battleState.teamA.Concat(battleState.teamB))
+                {
+                    battleArena.ShowTargetIndicator(participant, false);
+                }
+            }
+            
+            // Reset turn queue
+            if (turnQueueUI != null)
+                turnQueueUI.ResetQueue();
+            
+            // Reset BattleSelectionUI ready states
+            if (selectionUI != null)
+            {
+                selectionUI.Initialize(battleState);
+                // Reset visual ready indicators
+                selectionUI.ResetReadyStates();
+            }
         }
         
         public void SetInteractable(bool interactable)
@@ -266,11 +289,69 @@ namespace Systems.Battle.UI
             // Disable/enable next turn button
             if (nextTurnButton != null)
             {
-                nextTurnButton.interactable = interactable;
+                nextTurnButton.interactable = interactable && battleState?.AreBothTeamsReady == true;
+            }
+        }
+        
+        // Public methods for BattleSystem integration
+        public void PlayAttackAnimation(BattleParticipant attacker)
+        {
+            if (battleArena != null)
+                battleArena.PlayAttackAnimation(attacker);
+        }
+        
+        public void PlayBuffAnimation(BattleParticipant buffer)
+        {
+            if (battleArena != null)
+                battleArena.PlayBuffAnimation(buffer);
+        }
+        
+        public void AdvanceTurnQueue()
+        {
+            if (turnQueueUI != null)
+                turnQueueUI.AdvanceQueue();
+        }
+        
+        public BattleParticipant GetCurrentTurnParticipant()
+        {
+            return turnQueueUI?.GetCurrentParticipant();
+        }
+        
+        public bool IsTurnQueueComplete()
+        {
+            return turnQueueUI?.IsQueueComplete() ?? true;
+        }
+        
+        public BattleParticipant GetSelectedTarget(BattleParticipant caster)
+        {
+            selectedTargets.TryGetValue(caster, out BattleParticipant target);
+            return target;
+        }
+        
+        public bool IsAnyAnimationPlaying()
+        {
+            return battleArena?.IsAnyCreatureAnimating() ?? false;
+        }
+        
+        void OnDestroy()
+        {
+            // Clean up event handlers
+            if (selectionUI != null)
+            {
+                selectionUI.OnSpellSelected -= OnSpellSelected;
+                selectionUI.OnVisibilityChanged -= OnVisibilityChanged;
+                selectionUI.OnTargetIndicatorChanged -= OnTargetIndicatorChanged;
             }
             
-            // You can add more interactive elements here if needed
-            // For example: spell selection buttons, creature selection buttons, etc.
+            if (turnQueueUI != null)
+            {
+                turnQueueUI.OnQueueAnimationComplete -= OnQueueAnimationComplete;
+            }
+            
+            if (battleArena != null)
+            {
+                battleArena.OnCreatureAnimationComplete -= OnCreatureAnimationComplete;
+            }
         }
     }
 }

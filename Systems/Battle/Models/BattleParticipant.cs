@@ -9,6 +9,7 @@ namespace Systems.Battle.Models {
         public int currentHP;
         public int initiativeBonus = 0;
         public bool hasConfirmedMove = false;
+        public BattleParticipant selectedTarget; // Remember last selected target
         
         public BattleParticipant(Creature creature) {
             this.creature = creature;
@@ -21,6 +22,7 @@ namespace Systems.Battle.Models {
         
         public void ResetMoveSelection() {
             selectedSpell = null;
+            selectedTarget = null;
             hasConfirmedMove = false;
         }
     }
