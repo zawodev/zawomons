@@ -24,8 +24,7 @@ namespace Systems.Battle.UI
         [Header("Battle System Reference")]
         public Systems.Battle.Core.BattleSystem battleSystem;
         
-        [Header("Network")]
-        public Systems.Battle.Network.IBattleNetworkHandler networkHandler;
+
         
         // References
         private BattleState battleState;
@@ -121,6 +120,18 @@ namespace Systems.Battle.UI
         
         private void OnSpellSelected(BattleParticipant caster, Spell spell, BattleParticipant target)
         {
+            // Check if this is battle start signal (null parameters)
+            if (caster == null && spell == null && target == null)
+            {
+                // For online battles, we'll handle readiness in a simpler way
+                if (battleState != null && battleState.mode == BattleMode.Online)
+                {
+                    Debug.Log("[BattleMoveSelectionUI] Online battle ready signal received");
+                    // In a simplified system, we can just proceed to turn processing
+                }
+                return;
+            }
+            
             // Store target selection if applicable
             if (target != null)
             {
@@ -133,8 +144,16 @@ namespace Systems.Battle.UI
                 battleArena.ShowTargetIndicator(target, true);
             }
             
+            // For online battles, log the move selection (in future, this could be sent to server)
+            if (battleState != null && battleState.mode == BattleMode.Online)
+            {
+                Debug.Log($"[BattleMoveSelectionUI] Online move selected: {caster.creature.name} casts {spell.name}");
+                // In a full implementation, this is where you'd send the move to the server
+                // For now, we'll just process it locally
+            }
+            
             // Check if all teams are ready and update turn queue
-            if (battleState.AreBothTeamsReady)
+            if (battleState != null && battleState.AreBothTeamsReady)
             {
                 InitializeTurnQueue();
             }

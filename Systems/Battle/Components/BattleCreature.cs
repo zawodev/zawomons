@@ -23,6 +23,7 @@ namespace Systems.Battle.Components
         // Animation triggers
         private static readonly int AttackTrigger = Animator.StringToHash("BattleAttackTrigger");
         private static readonly int BuffTrigger = Animator.StringToHash("BattleBuffTrigger");
+        private static readonly int HurtTrigger = Animator.StringToHash("BattleHurtTrigger");
         private static readonly int IdleState = Animator.StringToHash("Idle");
         
         // Events
@@ -84,6 +85,23 @@ namespace Systems.Battle.Components
                 float duration = GetEffectiveAnimationDuration(buffAnimationDuration);
                 
                 // Auto-return to idle after duration
+                Invoke(nameof(ReturnToIdle), duration);
+            }
+        }
+        
+        public void PlayHurtAnimation()
+        {
+            if (animator != null)
+            {
+                // Hurt animation can interrupt other animations
+                isAnimating = true;
+                animator.SetTrigger(HurtTrigger);
+                
+                // Check if animations should be accelerated
+                float duration = GetEffectiveAnimationDuration(0.5f); // Default hurt duration
+                
+                // Auto-return to idle after duration
+                CancelInvoke(nameof(ReturnToIdle)); // Cancel any pending idle return
                 Invoke(nameof(ReturnToIdle), duration);
             }
         }

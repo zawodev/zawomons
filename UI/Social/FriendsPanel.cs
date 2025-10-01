@@ -30,6 +30,9 @@ namespace UI.Social {
         [Header("Battle System Reference")]
         public BattleSystem battleSystem;
         
+        [Header("Notification Panels")]
+        public SimpleWaitingPanel waitingPanel;
+        
         // Data from API
         private PlayerSummaryResponse[] allPlayersData;
         private PlayerSummaryResponse[] friendsData;
@@ -351,17 +354,39 @@ namespace UI.Social {
         private void ChallengeFriend(FriendData friend) {
             Debug.Log($"Challenging friend: {friend.username} to an online sparring match");
             
-            // Mock: Start online battle (without consequences)
-            // In the future, this will send a challenge request through API
-            StartOnlineSparringMatch(friend.username);
+            // Send invitation through simple notification system
+            if (Systems.Notifications.SimpleNotificationManager.Instance != null) {
+                Systems.Notifications.SimpleNotificationManager.Instance.SendInvitation(friend.username);
+                
+                // Show waiting panel
+                if (waitingPanel != null) {
+                    waitingPanel.ShowWaitingFor(friend.username);
+                }
+                
+                Debug.Log($"Invitation sent to {friend.username}");
+            } else {
+                Debug.LogWarning("SimpleNotificationManager not available, using fallback");
+                StartOnlineSparringMatch(friend.username);
+            }
         }
         
         private void ChallengePlayer(PlayerSummaryResponse playerData) {
             Debug.Log($"Challenging player: {playerData.username} to an online sparring match");
             
-            // Mock: Start online battle (without consequences)
-            // In the future, this will send a challenge request through API
-            StartOnlineSparringMatch(playerData.username);
+            // Send invitation through simple notification system
+            if (Systems.Notifications.SimpleNotificationManager.Instance != null) {
+                Systems.Notifications.SimpleNotificationManager.Instance.SendInvitation(playerData.username);
+                
+                // Show waiting panel
+                if (waitingPanel != null) {
+                    waitingPanel.ShowWaitingFor(playerData.username);
+                }
+                
+                Debug.Log($"Invitation sent to {playerData.username}");
+            } else {
+                Debug.LogWarning("SimpleNotificationManager not available, using fallback");
+                StartOnlineSparringMatch(playerData.username);
+            }
         }
         
         private void StartOnlineSparringMatch(string playerUsername) {

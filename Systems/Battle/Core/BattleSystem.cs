@@ -21,9 +21,6 @@ namespace Systems.Battle.Core
         [Header("Arena")]
         public BattleArena battleArena;
         
-        [Header("Network")]
-        public Systems.Battle.Network.IBattleNetworkHandler networkHandler;
-        
         [Header("Animation Settings")]
         [Tooltip("Delay in seconds between each participant's turn in combat")]
         public float turnSlotDelay = 3.0f;
@@ -80,22 +77,8 @@ namespace Systems.Battle.Core
                 battleState.battleType = battleType;
             }
             
-            // Configure network handler based on mode
-            if (networkHandler != null)
-            {
-                if (mode == Systems.Battle.Models.BattleMode.Local)
-                {
-                    networkHandler.EnableOfflineMode(true);
-                }
-                else
-                {
-                    networkHandler.EnableOfflineMode(false);
-                    if (!networkHandler.IsConnected)
-                    {
-                        networkHandler.Connect();
-                    }
-                }
-            }
+            // Configure battle mode
+            Debug.Log($"[BattleSystem] Battle mode set to: {mode}, Type: {battleType}");
         }
         
         void Initialize()
@@ -127,6 +110,8 @@ namespace Systems.Battle.Core
                 battleResultsUI.OnRematchClicked += HandleRematch;
                 battleResultsUI.OnExitBattleClicked += HandleExitBattle;
             }
+            
+            // Network events will be handled by online battle components when needed
         }
         
         void ShowTeamSelection()
@@ -383,28 +368,53 @@ namespace Systems.Battle.Core
             var ownTeam = isCasterInTeamA ? battleState.teamA : battleState.teamB;
             var enemyTeam = isCasterInTeamA ? battleState.teamB : battleState.teamA;
             
+            // For single target spells, use player's selected target if available
+            if (effect.targetType == SpellTargetType.Enemy || effect.targetType == SpellTargetType.Ally)
+            {
+                if (caster.selectedTarget != null && caster.selectedTarget.IsAlive)
+                {
+                    // Validate that selected target matches spell type
+                    bool isSelectedTargetEnemy = enemyTeam.Contains(caster.selectedTarget);
+                    bool isSelectedTargetAlly = ownTeam.Contains(caster.selectedTarget) && caster.selectedTarget != caster;
+                    
+                    if ((effect.targetType == SpellTargetType.Enemy && isSelectedTargetEnemy) ||
+                        (effect.targetType == SpellTargetType.Ally && isSelectedTargetAlly))
+                    {
+                        targets.Add(caster.selectedTarget);
+                        Debug.Log($"[BattleSystem] Using player selected target: {caster.creature.name} -> {caster.selectedTarget.creature.name}");
+                        return targets;
+                    }
+                }
+            }
+            
+            // Fallback to default targeting logic
             switch (effect.targetType)
             {
                 case SpellTargetType.Enemy:
                     var firstEnemy = enemyTeam.FirstOrDefault(p => p.IsAlive);
                     if (firstEnemy != null) targets.Add(firstEnemy);
+                    Debug.Log($"[BattleSystem] Using default enemy target: {caster.creature.name} -> {firstEnemy?.creature.name ?? "none"}");
                     break;
                     
                 case SpellTargetType.AllEnemies:
                     targets.AddRange(enemyTeam.Where(p => p.IsAlive));
+                    Debug.Log($"[BattleSystem] Targeting all enemies: {string.Join(", ", targets.Select(t => t.creature.name))}");
                     break;
                     
                 case SpellTargetType.Ally:
                     var firstAlly = ownTeam.FirstOrDefault(p => p.IsAlive && p != caster);
                     if (firstAlly != null) targets.Add(firstAlly);
+                    Debug.Log($"[BattleSystem] Using default ally target: {caster.creature.name} -> {firstAlly?.creature.name ?? "none"}");
                     break;
                     
                 case SpellTargetType.AllAllies:
                     targets.AddRange(ownTeam.Where(p => p.IsAlive && p != caster));
+                    Debug.Log($"[BattleSystem] Targeting all allies: {string.Join(", ", targets.Select(t => t.creature.name))}");
                     break;
                     
                 case SpellTargetType.Self:
                     targets.Add(caster);
+                    Debug.Log($"[BattleSystem] Self-targeting: {caster.creature.name}");
                     break;
             }
             
@@ -419,6 +429,17 @@ namespace Systems.Battle.Core
                     int damage = effect.power;
                     target.currentHP = Mathf.Max(0, target.currentHP - damage);
                     Debug.Log($"{caster.creature.name} deals {damage} damage to {target.creature.name} ({target.currentHP}/{target.creature.maxHP} HP remaining)");
+                    
+                    // Play hurt animation on the target
+                    if (battleArena != null)
+                    {
+                        var targetCreature = battleArena.GetCreatureForParticipant(target);
+                        if (targetCreature != null)
+                        {
+                            targetCreature.PlayHurtAnimation();
+                            Debug.Log($"[BattleSystem] Playing hurt animation on {target.creature.name}");
+                        }
+                    }
                     
                     // Update UI immediately after damage
                     RefreshBattleUI();
@@ -607,5 +628,13 @@ namespace Systems.Battle.Core
             // You might want to return to main menu or world map here
             // For now, we'll just reset everything
         }
+        
+
+        
+
+        
+
+
+
     }
 }
